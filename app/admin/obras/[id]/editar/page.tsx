@@ -71,16 +71,32 @@ export default function EditarObra({ params }: PageProps) {
 
     const formData = new FormData(e.target as HTMLFormElement)
 
-    // Client-side validation for new images
+    // Client-side validation for new images - MEJORADA
     if (selectedImages.length > 0) {
       const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
       for (const image of selectedImages) {
         if (image.size > MAX_FILE_SIZE) {
-          setError(`La imagen "${image.name}" es demasiado grande. Máximo 8MB.`)
+          const sizeMB = (image.size / 1024 / 1024).toFixed(2)
+          setError(
+            `La imagen "${image.name}" es demasiado grande (${sizeMB}MB). El tamaño máximo permitido es 8MB por imagen.`,
+          )
           setIsLoading(false)
           return
         }
       }
+
+      // Validar tamaño total
+      const totalSize = selectedImages.reduce((acc, img) => acc + img.size, 0)
+      const maxTotalSize = 3 * 8 * 1024 * 1024 // 24MB total máximo
+      if (totalSize > maxTotalSize) {
+        const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2)
+        setError(
+          `El tamaño total de las imágenes (${totalSizeMB}MB) excede el límite de 24MB. Reduce el tamaño o número de imágenes.`,
+        )
+        setIsLoading(false)
+        return
+      }
+
       selectedImages.forEach((image) => {
         formData.append("images", image)
       })
@@ -101,16 +117,29 @@ export default function EditarObra({ params }: PageProps) {
       if (result && (result.id || result.title)) {
         console.log("🎉 Artwork updated successfully!")
         setSuccess(true)
+        // Redirigir después de 2 segundos
         setTimeout(() => {
           router.push("/admin/obras")
         }, 2000)
       } else {
         console.error("❌ Invalid result from updateArtwork:", result)
-        throw new Error("La obra se actualizó pero no se recibió confirmación válida")
+        throw new Error("La obra se procesó pero no se recibió confirmación válida del servidor")
       }
     } catch (error: any) {
       console.error("💥 Error updating artwork:", error)
-      setError(error.message || "Error desconocido al actualizar la obra.")
+
+      // Mensajes de error más específicos
+      let errorMessage = error.message || "Error desconocido al actualizar la obra"
+
+      if (errorMessage.includes("demasiado grande")) {
+        errorMessage = "Una o más imágenes exceden el tamaño máximo permitido de 8MB por imagen"
+      } else if (errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+        errorMessage = "La subida de imágenes tardó demasiado. Intenta con imágenes más pequeñas"
+      } else if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
+        errorMessage = "Error de conexión. Verifica tu internet e intenta nuevamente"
+      }
+
+      setError(errorMessage)
       setSuccess(false)
     } finally {
       setIsLoading(false)
@@ -134,6 +163,11 @@ export default function EditarObra({ params }: PageProps) {
       }
     })
   }
+
+  // Validar imágenes seleccionadas
+  const hasOversizedImages = selectedImages.some((img) => img.size > 8 * 1024 * 1024)
+  const totalSize = selectedImages.reduce((acc, img) => acc + img.size, 0)
+  const isValidSelection = selectedImages.length === 0 || (!hasOversizedImages && totalSize <= 3 * 8 * 1024 * 1024)
 
   if (!isAuthenticated || loading) {
     return (
@@ -165,10 +199,8 @@ export default function EditarObra({ params }: PageProps) {
         <div className="text-center max-w-md mx-auto px-4">
           <div className="bg-white rounded-lg p-8 shadow-lg">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Actualizada!</h2>
-            <p className="text-gray-600 mb-4">
-              Los cambios se han guardado exitosamente con el nuevo orden de imágenes.
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Actualizada Exitosamente!</h2>
+            <p className="text-gray-600 mb-4">Los cambios se han guardado correctamente con las nuevas imágenes.</p>
             <div className="animate-pulse text-sm text-gray-500">Redirigiendo al panel de obras...</div>
           </div>
         </div>
@@ -410,7 +442,11 @@ export default function EditarObra({ params }: PageProps) {
               </Card>
 
               <div className="flex flex-col gap-3">
-                <Button type="submit" className="w-full bg-gray-900 hover:bg-gray-800" disabled={isLoading}>
+                <Button
+                  type="submit"
+                  className="w-full bg-gray-900 hover:bg-gray-800"
+                  disabled={isLoading || !isValidSelection}
+                >
                   {isLoading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -437,6 +473,7 @@ export default function EditarObra({ params }: PageProps) {
                 </Link>
               </div>
 
+              {/* Mensajes de estado - MEJORADOS */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -446,6 +483,12 @@ export default function EditarObra({ params }: PageProps) {
                       <p className="text-xs text-red-600">{error}</p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {hasOversizedImages && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-800">❌ Una o más imágenes exceden el tamaño máximo de 8MB</p>
                 </div>
               )}
 
@@ -462,6 +505,18 @@ export default function EditarObra({ params }: PageProps) {
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {selectedImages.length > 0 && isValidSelection && !isLoading && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-800">
+                    ✅ {selectedImages.length} nueva{selectedImages.length > 1 ? "s" : ""} imagen
+                    {selectedImages.length > 1 ? "es" : ""} lista{selectedImages.length > 1 ? "s" : ""} para subir
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Tamaño total: {(selectedImages.reduce((acc, img) => acc + img.size, 0) / 1024 / 1024).toFixed(2)}MB
+                  </p>
                 </div>
               )}
             </div>

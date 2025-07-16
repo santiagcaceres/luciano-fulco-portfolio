@@ -42,21 +42,36 @@ export default function NuevaObra() {
 
     const formData = new FormData(e.target as HTMLFormElement)
 
-    // Validaciones del lado del cliente
+    // Validaciones del lado del cliente - MEJORADAS
     if (selectedImages.length === 0) {
       setError("Debes seleccionar al menos una imagen")
       setIsLoading(false)
       return
     }
 
-    // Validar tamaño de archivos (8MB máximo)
+    // Validar tamaño de archivos (8MB máximo) - VALIDACIÓN MEJORADA
     const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
     for (const image of selectedImages) {
       if (image.size > MAX_FILE_SIZE) {
-        setError(`La imagen "${image.name}" es demasiado grande. Máximo 8MB por imagen.`)
+        const sizeMB = (image.size / 1024 / 1024).toFixed(2)
+        setError(
+          `La imagen "${image.name}" es demasiado grande (${sizeMB}MB). El tamaño máximo permitido es 8MB por imagen.`,
+        )
         setIsLoading(false)
         return
       }
+    }
+
+    // Validar tamaño total
+    const totalSize = selectedImages.reduce((acc, img) => acc + img.size, 0)
+    const maxTotalSize = 3 * 8 * 1024 * 1024 // 24MB total máximo
+    if (totalSize > maxTotalSize) {
+      const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2)
+      setError(
+        `El tamaño total de las imágenes (${totalSizeMB}MB) excede el límite de 24MB. Reduce el tamaño o número de imágenes.`,
+      )
+      setIsLoading(false)
+      return
     }
 
     if (isEspatula) {
@@ -79,16 +94,29 @@ export default function NuevaObra() {
       if (result && (result.id || result.title)) {
         console.log("🎉 Artwork created successfully!")
         setSuccess(true)
+        // Redirigir después de 2 segundos
         setTimeout(() => {
           router.push("/admin/obras")
         }, 2000)
       } else {
         console.error("❌ Invalid result from createArtwork:", result)
-        throw new Error("La obra se creó pero no se recibió confirmación válida")
+        throw new Error("La obra se procesó pero no se recibió confirmación válida del servidor")
       }
     } catch (error: any) {
       console.error("💥 Error creating artwork:", error)
-      setError(error.message || "Error desconocido al crear la obra")
+
+      // Mensajes de error más específicos
+      let errorMessage = error.message || "Error desconocido al crear la obra"
+
+      if (errorMessage.includes("demasiado grande")) {
+        errorMessage = "Una o más imágenes exceden el tamaño máximo permitido de 8MB por imagen"
+      } else if (errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+        errorMessage = "La subida de imágenes tardó demasiado. Intenta con imágenes más pequeñas"
+      } else if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
+        errorMessage = "Error de conexión. Verifica tu internet e intenta nuevamente"
+      }
+
+      setError(errorMessage)
       setSuccess(false)
     } finally {
       setIsLoading(false)
@@ -99,6 +127,12 @@ export default function NuevaObra() {
     setSelectedImages(files)
     setError("") // Limpiar error cuando se seleccionan imágenes
   }
+
+  // Calcular si las imágenes seleccionadas son válidas
+  const hasValidImages = selectedImages.length > 0
+  const hasOversizedImages = selectedImages.some((img) => img.size > 8 * 1024 * 1024)
+  const totalSize = selectedImages.reduce((acc, img) => acc + img.size, 0)
+  const isValidSelection = hasValidImages && !hasOversizedImages && totalSize <= 3 * 8 * 1024 * 1024
 
   if (!isAuthenticated) {
     return (
@@ -299,7 +333,7 @@ export default function NuevaObra() {
                 <Button
                   type="submit"
                   className="flex-1 bg-gray-900 hover:bg-gray-800"
-                  disabled={isLoading || selectedImages.length === 0}
+                  disabled={isLoading || !isValidSelection}
                 >
                   {isLoading ? (
                     <>
@@ -315,7 +349,7 @@ export default function NuevaObra() {
                 </Button>
               </div>
 
-              {/* Mensajes de estado */}
+              {/* Mensajes de estado - MEJORADOS */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -334,6 +368,12 @@ export default function NuevaObra() {
                 </div>
               )}
 
+              {hasOversizedImages && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-800">❌ Una o más imágenes exceden el tamaño máximo de 8MB</p>
+                </div>
+              )}
+
               {isLoading && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -349,11 +389,11 @@ export default function NuevaObra() {
                 </div>
               )}
 
-              {selectedImages.length > 0 && (
+              {isValidSelection && !isLoading && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <p className="text-sm text-green-800">
-                    ✅ {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""} seleccionada
-                    {selectedImages.length > 1 ? "s" : ""}
+                    ✅ {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""} lista
+                    {selectedImages.length > 1 ? "s" : ""} para subir
                   </p>
                   <p className="text-xs text-green-600 mt-1">
                     Tamaño total: {(selectedImages.reduce((acc, img) => acc + img.size, 0) / 1024 / 1024).toFixed(2)}MB

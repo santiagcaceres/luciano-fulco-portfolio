@@ -38,9 +38,13 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
       return
     }
 
+    // Validar tamaño de archivos ANTES de crear previews
+    const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
     for (const file of filesArray) {
-      if (file.size > 8 * 1024 * 1024) {
-        setError(`La imagen "${file.name}" es demasiado grande (máx 8MB).`)
+      if (file.size > MAX_FILE_SIZE) {
+        setError(
+          `La imagen "${file.name}" es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo 8MB por imagen.`,
+        )
         return
       }
     }
@@ -64,6 +68,7 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
     const newImages = images.filter((_, index) => index !== indexToRemove)
     setImages(newImages)
     onImagesChange(newImages.map((img) => img.file))
+    setError("") // Limpiar error al remover imagen
   }
 
   const moveImage = (index: number, direction: "left" | "right") => {
@@ -77,6 +82,12 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
     setImages(newImages)
     onImagesChange(newImages.map((img) => img.file))
   }
+
+  // Calcular tamaño total y verificar si excede el límite
+  const totalSize = images.reduce((acc, img) => acc + img.file.size, 0)
+  const totalSizeMB = totalSize / 1024 / 1024
+  const MAX_TOTAL_SIZE = maxImages * 8 * 1024 * 1024 // 8MB por imagen máximo
+  const isOverSize = totalSize > MAX_TOTAL_SIZE
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -174,6 +185,38 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
               </div>
             ))}
           </div>
+
+          {/* Información de tamaño total - CORREGIDA */}
+          {images.length > 0 && (
+            <div
+              className={`p-3 rounded-lg border ${
+                isOverSize || error
+                  ? "bg-red-50 border-red-200"
+                  : totalSizeMB > 20
+                    ? "bg-yellow-50 border-yellow-200"
+                    : "bg-green-50 border-green-200"
+              }`}
+            >
+              <p
+                className={`text-sm font-medium ${
+                  isOverSize || error ? "text-red-800" : totalSizeMB > 20 ? "text-yellow-800" : "text-green-800"
+                }`}
+              >
+                {isOverSize || error ? "❌" : totalSizeMB > 20 ? "⚠️" : "✅"} Tamaño total: {totalSizeMB.toFixed(2)}MB
+              </p>
+              <p
+                className={`text-xs mt-1 ${
+                  isOverSize || error ? "text-red-600" : totalSizeMB > 20 ? "text-yellow-600" : "text-green-600"
+                }`}
+              >
+                {isOverSize || error
+                  ? `Excede el límite de ${maxImages * 8}MB total`
+                  : totalSizeMB > 20
+                    ? "Tamaño considerable, la subida puede tomar tiempo"
+                    : `${images.length} imagen${images.length > 1 ? "es" : ""} lista${images.length > 1 ? "s" : ""} para subir`}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
