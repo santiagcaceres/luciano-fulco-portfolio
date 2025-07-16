@@ -10,6 +10,50 @@ const SUPABASE_ENABLED =
 
 const BUCKET_NAME = "artworks"
 
+// Función para comprimir imagen
+function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<File> {
+  return new Promise((resolve) => {
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")
+    const img = new Image()
+
+    img.onload = () => {
+      // Calcular nuevas dimensiones manteniendo aspect ratio
+      let { width, height } = img
+
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width
+        width = maxWidth
+      }
+
+      canvas.width = width
+      canvas.height = height
+
+      // Dibujar imagen redimensionada
+      ctx?.drawImage(img, 0, 0, width, height)
+
+      // Convertir a blob
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            })
+            resolve(compressedFile)
+          } else {
+            resolve(file) // Si falla la compresión, usar archivo original
+          }
+        },
+        "image/jpeg",
+        quality,
+      )
+    }
+
+    img.src = URL.createObjectURL(file)
+  })
+}
+
 // Datos de ejemplo con múltiples imágenes placeholder
 const SAMPLE_ARTWORKS = [
   {
@@ -262,30 +306,58 @@ export async function createArtwork(formData: FormData) {
 
   const supabase = createClient()
 
-  const rawFormData = Object.fromEntries(formData.entries())
-  const images = formData.getAll("images") as File[]
+  try {
+    const rawFormData = Object.fromEntries(formData.entries())
+    const images = formData.getAll("images") as File[]
 
-  console.log("Creating artwork with data:", rawFormData)
-  console.log("Images received:", images.length)
+    console.log("Creating artwork with data:", rawFormData)
+    console.log("Images received:", images.length)
 
-  let mainImageUrl = null
-  const galleryUrls: string[] = []
+    // Validar que hay imágenes
+    if (!images || images.length === 0 || images[0].size === 0) {
+      throw new Error("Debes seleccionar al menos una imagen")
+    }
 
-  // 1. Subir todas las imágenes
-  if (images.length > 0) {
+    // Validar tamaño de archivos (5MB máximo por imagen)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+    for (const image of images) {
+      if (image.size > MAX_FILE_SIZE) {
+        throw new Error(`La imagen "${image.name}" es demasiado grande. Máximo 5MB por imagen.`)
+      }
+    }
+
+    let mainImageUrl = null
+    const galleryUrls: string[] = []
+
+    // 1. Subir todas las imágenes con timeout y retry
     for (let i = 0; i < images.length; i++) {
       const image = images[i]
       if (image && image.size > 0) {
         const timestamp = Date.now()
         const fileName = `${timestamp}-${i}-${image.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
 
-        console.log(`Uploading image ${i + 1}:`, fileName)
+        console.log(
+          `Uploading image ${i + 1}/${images.length}:`,
+          fileName,
+          `(${(image.size / 1024 / 1024).toFixed(2)}MB)`,
+        )
 
-        const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(fileName, image)
+        // Intentar subir con timeout
+        const uploadPromise = supabase.storage.from(BUCKET_NAME).upload(fileName, image, {
+          cacheControl: "3600",
+          upsert: false,
+        })
+
+        // Timeout de 30 segundos por imagen
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout subiendo imagen ${i + 1}`)), 30000),
+        )
+
+        const { error: uploadError } = (await Promise.race([uploadPromise, timeoutPromise])) as any
 
         if (uploadError) {
-          console.error("Error uploading image:", uploadError)
-          continue
+          console.error(`Error uploading image ${i + 1}:`, uploadError)
+          throw new Error(`Error subiendo imagen ${i + 1}: ${uploadError.message}`)
         }
 
         const {
@@ -300,65 +372,80 @@ export async function createArtwork(formData: FormData) {
         galleryUrls.push(publicUrl) // Todas las imágenes van a la galería
       }
     }
-  }
 
-  console.log("Main image URL:", mainImageUrl)
-  console.log("Gallery URLs:", galleryUrls)
-
-  // 2. Insertar datos de la obra en la tabla 'artworks'
-  const artworkData = {
-    title: rawFormData.title as string,
-    category: rawFormData.category as string,
-    subcategory: (rawFormData.subcategory as string) || null,
-    price: Number(rawFormData.price),
-    description: rawFormData.description as string,
-    detailed_description: (rawFormData.detailedDescription as string) || null,
-    year: Number(rawFormData.year) || new Date().getFullYear(),
-    dimensions: (rawFormData.dimensions as string) || null,
-    technique: (rawFormData.technique as string) || null,
-    status: (rawFormData.status as string) || "Disponible",
-    featured: rawFormData.featured === "on",
-    main_image_url: mainImageUrl,
-  }
-
-  console.log("Inserting artwork data:", artworkData)
-
-  const { data: insertedArtwork, error: artworkError } = await supabase
-    .from("artworks")
-    .insert(artworkData)
-    .select()
-    .single()
-
-  if (artworkError) {
-    console.error("Error creating artwork:", artworkError)
-    throw new Error(`Error al crear la obra: ${artworkError.message}`)
-  }
-
-  console.log("Artwork created successfully:", insertedArtwork)
-
-  // 3. Insertar imágenes de galería
-  if (galleryUrls.length > 0 && insertedArtwork) {
-    const galleryInserts = galleryUrls.map((url) => ({
-      artwork_id: insertedArtwork.id,
-      image_url: url,
-    }))
-
-    console.log("Inserting gallery images:", galleryInserts)
-
-    const { error: galleryError } = await supabase.from("artwork_images").insert(galleryInserts)
-
-    if (galleryError) {
-      console.error("Error inserting gallery images:", galleryError)
-      // No lanzar error aquí, la obra ya se creó
-    } else {
-      console.log("Gallery images inserted successfully")
+    if (!mainImageUrl) {
+      throw new Error("No se pudo subir ninguna imagen")
     }
-  }
 
-  revalidatePath("/admin/obras")
-  revalidatePath("/obras")
-  revalidatePath("/")
-  redirect("/admin/obras")
+    console.log("Main image URL:", mainImageUrl)
+    console.log("Gallery URLs:", galleryUrls)
+
+    // 2. Insertar datos de la obra en la tabla 'artworks'
+    const artworkData = {
+      title: rawFormData.title as string,
+      category: rawFormData.category as string,
+      subcategory: (rawFormData.subcategory as string) || null,
+      price: Number(rawFormData.price),
+      description: rawFormData.description as string,
+      detailed_description: (rawFormData.detailedDescription as string) || null,
+      year: Number(rawFormData.year) || new Date().getFullYear(),
+      dimensions: (rawFormData.dimensions as string) || null,
+      technique: (rawFormData.technique as string) || null,
+      status: (rawFormData.status as string) || "Disponible",
+      featured: rawFormData.featured === "on",
+      main_image_url: mainImageUrl,
+    }
+
+    console.log("Inserting artwork data:", artworkData)
+
+    const { data: insertedArtwork, error: artworkError } = await supabase
+      .from("artworks")
+      .insert(artworkData)
+      .select()
+      .single()
+
+    if (artworkError) {
+      console.error("Error creating artwork:", artworkError)
+      // Si falla la inserción, limpiar las imágenes subidas
+      const filesToDelete = galleryUrls.map((url) => url.split("/").pop()).filter(Boolean)
+      if (filesToDelete.length > 0) {
+        await supabase.storage.from(BUCKET_NAME).remove(filesToDelete)
+      }
+      throw new Error(`Error al crear la obra: ${artworkError.message}`)
+    }
+
+    console.log("Artwork created successfully:", insertedArtwork)
+
+    // 3. Insertar imágenes de galería
+    if (galleryUrls.length > 0 && insertedArtwork) {
+      const galleryInserts = galleryUrls.map((url) => ({
+        artwork_id: insertedArtwork.id,
+        image_url: url,
+      }))
+
+      console.log("Inserting gallery images:", galleryInserts)
+
+      const { error: galleryError } = await supabase.from("artwork_images").insert(galleryInserts)
+
+      if (galleryError) {
+        console.error("Error inserting gallery images:", galleryError)
+        // No lanzar error aquí, la obra ya se creó
+      } else {
+        console.log("Gallery images inserted successfully")
+      }
+    }
+
+    // Revalidar las páginas
+    revalidatePath("/admin/obras")
+    revalidatePath("/obras")
+    revalidatePath("/")
+
+    console.log("Artwork creation completed successfully")
+    return insertedArtwork
+  } catch (error) {
+    console.error("Error in createArtwork:", error)
+    throw error
+  }
 }
 
 export async function updateArtwork(id: string, formData: FormData) {

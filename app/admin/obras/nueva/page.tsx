@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, CheckCircle } from "lucide-react"
+import { ArrowLeft, Save, CheckCircle, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -21,6 +21,7 @@ export default function NuevaObra() {
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [isEspatula, setIsEspatula] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string>("")
 
   useEffect(() => {
     const token = localStorage.getItem("admin-token")
@@ -35,13 +36,25 @@ export default function NuevaObra() {
     e.preventDefault()
     setIsLoading(true)
     setSuccess(false)
+    setError("")
 
     const formData = new FormData(e.target as HTMLFormElement)
 
-    // Debug: mostrar todos los datos del formulario
-    console.log("Form data entries:")
-    for (const [key, value] of formData.entries()) {
-      console.log(`${key}:`, value)
+    // Validaciones del lado del cliente
+    if (selectedImages.length === 0) {
+      setError("Debes seleccionar al menos una imagen")
+      setIsLoading(false)
+      return
+    }
+
+    // Validar tamaño de archivos (5MB máximo)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+    for (const image of selectedImages) {
+      if (image.size > MAX_FILE_SIZE) {
+        setError(`La imagen "${image.name}" es demasiado grande. Máximo 5MB por imagen.`)
+        setIsLoading(false)
+        return
+      }
     }
 
     if (isEspatula) {
@@ -51,24 +64,28 @@ export default function NuevaObra() {
     // Añadir imágenes en su orden actual
     console.log("Adding images to form data:", selectedImages.length)
     selectedImages.forEach((image, index) => {
-      console.log(`Adding image ${index + 1}:`, image.name, image.size)
+      console.log(`Adding image ${index + 1}:`, image.name, `${(image.size / 1024 / 1024).toFixed(2)}MB`)
       formData.append("images", image)
     })
 
     try {
       console.log("Calling createArtwork...")
-      await createArtwork(formData)
-      console.log("Artwork created successfully!")
-      setSuccess(true)
+      const result = await createArtwork(formData)
+      console.log("Artwork created successfully:", result)
 
-      setTimeout(() => {
-        router.push("/admin/obras")
-      }, 2000)
-    } catch (error) {
+      // Solo mostrar éxito si realmente se creó
+      if (result && result.id) {
+        setSuccess(true)
+        setTimeout(() => {
+          router.push("/admin/obras")
+        }, 2000)
+      } else {
+        throw new Error("No se recibió confirmación de creación")
+      }
+    } catch (error: any) {
       console.error("Error creating artwork:", error)
-      setIsLoading(false)
+      setError(error.message || "Error desconocido al crear la obra")
       setSuccess(false)
-      alert(`Error al crear la obra: ${error.message || "Error desconocido"}`)
     } finally {
       setIsLoading(false)
     }
@@ -76,6 +93,7 @@ export default function NuevaObra() {
 
   const handleImagesChange = (files: File[]) => {
     setSelectedImages(files)
+    setError("") // Limpiar error cuando se seleccionan imágenes
   }
 
   if (!isAuthenticated) {
@@ -95,10 +113,8 @@ export default function NuevaObra() {
         <div className="text-center max-w-md mx-auto px-4">
           <div className="bg-white rounded-lg p-8 shadow-lg">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Creada!</h2>
-            <p className="text-gray-600 mb-4">
-              La obra se ha guardado exitosamente con el orden de imágenes seleccionado.
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Creada Exitosamente!</h2>
+            <p className="text-gray-600 mb-4">La obra se ha guardado correctamente con todas sus imágenes.</p>
             <div className="animate-pulse text-sm text-gray-500">Redirigiendo al panel de obras...</div>
           </div>
         </div>
@@ -242,7 +258,7 @@ export default function NuevaObra() {
               <Card>
                 <CardHeader>
                   <CardTitle>Imágenes de la Obra</CardTitle>
-                  <p className="text-sm text-gray-600">Máximo 3 imágenes. La primera será la principal.</p>
+                  <p className="text-sm text-gray-600">Máximo 3 imágenes. Máximo 5MB por imagen.</p>
                 </CardHeader>
                 <CardContent>
                   <SimpleImageUpload onImagesChange={handleImagesChange} maxImages={3} />
@@ -295,7 +311,20 @@ export default function NuevaObra() {
                 </Button>
               </div>
 
-              {selectedImages.length === 0 && (
+              {/* Mensajes de estado */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <AlertTriangle className="w-4 h-4 text-red-600 mr-3 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800">Error</p>
+                      <p className="text-xs text-red-600">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedImages.length === 0 && !error && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-sm text-yellow-800">⚠️ Selecciona al menos una imagen para continuar</p>
                 </div>
@@ -306,12 +335,25 @@ export default function NuevaObra() {
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
                     <div>
-                      <p className="text-sm font-medium text-blue-800">Guardando obra...</p>
+                      <p className="text-sm font-medium text-blue-800">Subiendo imágenes...</p>
                       <p className="text-xs text-blue-600">
-                        Subiendo {selectedImages.length} imágenes en orden y creando registro
+                        Procesando {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""}. Esto puede
+                        tomar unos momentos.
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {selectedImages.length > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-800">
+                    ✅ {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""} seleccionada
+                    {selectedImages.length > 1 ? "s" : ""}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Tamaño total: {(selectedImages.reduce((acc, img) => acc + img.size, 0) / 1024 / 1024).toFixed(2)}MB
+                  </p>
                 </div>
               )}
             </div>
