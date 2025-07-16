@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Palette, Plus, Edit, Trash2, ImageIcon, ArrowLeft } from "lucide-react"
+import { Palette, Plus, Edit, Trash2, ImageIcon, ArrowLeft, CheckCircle } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -15,6 +15,7 @@ export default function AdminObras() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [artworks, setArtworks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleteSuccess, setDeleteSuccess] = useState<string>("")
 
   useEffect(() => {
     const token = localStorage.getItem("admin-token")
@@ -25,6 +26,16 @@ export default function AdminObras() {
       loadArtworks()
     }
   }, [router])
+
+  // Limpiar mensaje de éxito después de 3 segundos
+  useEffect(() => {
+    if (deleteSuccess) {
+      const timer = setTimeout(() => {
+        setDeleteSuccess("")
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [deleteSuccess])
 
   const loadArtworks = async () => {
     try {
@@ -43,7 +54,8 @@ export default function AdminObras() {
         await deleteArtwork(id)
         // Recargar la lista después de eliminar
         await loadArtworks()
-        alert("Obra eliminada exitosamente")
+        // Mostrar mensaje de éxito
+        setDeleteSuccess(`La obra "${title}" ha sido eliminada exitosamente.`)
       } catch (error) {
         console.error("Error deleting artwork:", error)
         alert("Error al eliminar la obra")
@@ -93,6 +105,19 @@ export default function AdminObras() {
             {loading ? "Cargando..." : `Gestiona tu colección de ${artworks.length} obras`}
           </p>
         </div>
+
+        {/* MENSAJE DE ÉXITO AL ELIMINAR */}
+        {deleteSuccess && (
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 transition-opacity duration-300">
+            <div className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-600 mr-3 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-green-800">¡Obra Eliminada!</p>
+                <p className="text-xs text-green-600">{deleteSuccess}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12">

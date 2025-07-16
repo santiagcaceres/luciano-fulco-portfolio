@@ -481,13 +481,14 @@ export default function EditarObra({ params }: PageProps) {
                 </div>
               )}
 
+              {/* MENSAJE NEUTRO SIN COLOR NI EMOJI PARA NUEVAS IMÁGENES */}
               {selectedImages.length > 0 && isValidSelection && !isLoading && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-sm text-green-800">
-                    ✅ {selectedImages.length} nueva{selectedImages.length > 1 ? "s" : ""} imagen
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-700">
+                    {selectedImages.length} nueva{selectedImages.length > 1 ? "s" : ""} imagen
                     {selectedImages.length > 1 ? "es" : ""} lista{selectedImages.length > 1 ? "s" : ""} para subir
                   </p>
-                  <p className="text-xs text-green-600 mt-1">
+                  <p className="text-xs text-gray-600 mt-1">
                     Tamaño total: {(selectedImages.reduce((acc, img) => acc + img.size, 0) / 1024 / 1024).toFixed(2)}MB
                   </p>
                 </div>
