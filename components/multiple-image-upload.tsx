@@ -39,18 +39,7 @@ export function MultipleImageUpload({
 
     setError("")
 
-    const validFiles = Array.from(files).filter((file) => {
-      // Validar tamaño (10MB máximo)
-      if (file.size > 10 * 1024 * 1024) {
-        setError("Los archivos deben ser menores a 10MB")
-        return false
-      }
-      return true
-    })
-
-    if (validFiles.length === 0) {
-      return
-    }
+    const validFiles = Array.from(files)
 
     if (validFiles.length > maxImages) {
       setError(`Máximo ${maxImages} archivos permitidos`)
@@ -191,7 +180,7 @@ export function MultipleImageUpload({
               <p className="text-xs text-gray-500 mb-2">
                 {allowEdit ? "Reemplazar todas las imágenes" : `${previews.length} de ${maxImages} imágenes`}
               </p>
-              <p className="text-xs text-gray-400 mb-4">Cualquier formato • Máximo 10MB por archivo</p>
+              <p className="text-xs text-gray-400 mb-4">Cualquier formato • Cualquier tamaño</p>
 
               {/* Botón para seleccionar archivos - NEGRO */}
               <Button
@@ -218,7 +207,7 @@ export function MultipleImageUpload({
           <li>La primera imagen será la imagen principal de la obra</li>
           <li>Máximo {maxImages} archivos por obra</li>
           <li>Cualquier formato de archivo soportado</li>
-          <li>Tamaño máximo: 10MB por archivo</li>
+          <li>Sin límite de tamaño por archivo</li>
         </ul>
       </div>
     </div>
