@@ -12,8 +12,10 @@ import { ArrowLeft, Save, ImageIcon, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { SortableImageUpload } from "@/components/sortable-image-upload"
+import { SimpleImageUpload } from "@/components/simple-image-upload"
 import { getArtworkById, updateArtwork } from "@/app/actions/artworks"
+import Image from "next/image"
+import { Badge } from "@/components/ui/badge"
 
 interface PageProps {
   params: {
@@ -29,7 +31,6 @@ export default function EditarObra({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [isEspatula, setIsEspatula] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
-  const [imageOrder, setImageOrder] = useState<number[]>([])
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
@@ -72,12 +73,9 @@ export default function EditarObra({ params }: PageProps) {
       formData.set("subcategory", "")
     }
 
-    // Agregar imágenes en el orden correcto si se seleccionaron nuevas
+    // Añadir imágenes nuevas solo si el usuario seleccionó algunas
     if (selectedImages.length > 0) {
-      const orderedImages = imageOrder.map((index) => selectedImages[index]).filter(Boolean)
-      const imagesToUse = orderedImages.length > 0 ? orderedImages : selectedImages
-
-      imagesToUse.forEach((image) => {
+      selectedImages.forEach((image) => {
         formData.append("images", image)
       })
     }
@@ -98,10 +96,8 @@ export default function EditarObra({ params }: PageProps) {
     }
   }
 
-  const handleImagesSelect = (files: File[], order: number[]) => {
-    console.log("Nuevas imágenes seleccionadas:", files.length, "Orden:", order)
+  const handleImagesChange = (files: File[]) => {
     setSelectedImages(files)
-    setImageOrder(order)
   }
 
   // Crear array de imágenes actuales para mostrar
@@ -319,33 +315,42 @@ export default function EditarObra({ params }: PageProps) {
               </Card>
             </div>
 
-            <div className="space-y-6">
+            <div className="lg:col-span-1 space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Gestión de Imágenes</CardTitle>
+                  <CardTitle>Imágenes Actuales</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {currentImages.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {currentImages.map((url, index) => (
+                        <div key={url} className="relative">
+                          <Image
+                            src={url || "/placeholder.svg"}
+                            alt={`Imagen actual ${index + 1}`}
+                            width={150}
+                            height={150}
+                            className="rounded-md object-cover w-full h-24"
+                          />
+                          {index === 0 && <Badge className="absolute top-1 left-1 text-xs">Principal</Badge>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Esta obra no tiene imágenes.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Reemplazar Imágenes</CardTitle>
                   <p className="text-sm text-gray-600">
-                    {currentImages.length > 0
-                      ? `${currentImages.length} imagen${currentImages.length !== 1 ? "es" : ""} actual${currentImages.length !== 1 ? "es" : ""}. Puedes reordenarlas o cambiarlas.`
-                      : "No hay imágenes. Agrega nuevas imágenes."}
+                    Para cambiar las imágenes, selecciona un nuevo set. Esto reemplazará todas las imágenes actuales.
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <SortableImageUpload
-                    onImagesSelect={handleImagesSelect}
-                    currentImages={currentImages}
-                    maxImages={3}
-                    allowEdit={true}
-                  />
-                  {selectedImages.length > 0 && (
-                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm text-green-700">
-                        ✅ {selectedImages.length} nueva{selectedImages.length !== 1 ? "s" : ""} imagen
-                        {selectedImages.length !== 1 ? "es" : ""} seleccionada{selectedImages.length !== 1 ? "s" : ""}{" "}
-                        en orden
-                      </p>
-                      <p className="text-xs text-green-600 mt-1">Se reemplazarán las imágenes actuales al guardar</p>
-                    </div>
-                  )}
+                  <SimpleImageUpload onImagesChange={handleImagesChange} maxImages={3} />
                 </CardContent>
               </Card>
 

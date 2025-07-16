@@ -11,7 +11,7 @@ import { ArrowLeft, Save, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { SortableImageUpload } from "@/components/sortable-image-upload"
+import { SimpleImageUpload } from "@/components/simple-image-upload"
 import { createArtwork } from "@/app/actions/artworks"
 
 export default function NuevaObra() {
@@ -19,7 +19,6 @@ export default function NuevaObra() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
-  const [imageOrder, setImageOrder] = useState<number[]>([])
   const [isEspatula, setIsEspatula] = useState(false)
   const [success, setSuccess] = useState(false)
 
@@ -39,18 +38,13 @@ export default function NuevaObra() {
 
     const formData = new FormData(e.target as HTMLFormElement)
 
-    // Agregar subcategoría si está marcada
     if (isEspatula) {
       formData.set("subcategory", "espatula")
     }
 
-    // Agregar imágenes en el orden correcto
-    console.log("Submitting with images:", selectedImages.length, "Order:", imageOrder)
-
-    // Las imágenes ya están en el orden correcto desde el componente
-    selectedImages.forEach((image, index) => {
+    // Añadir imágenes en su orden actual
+    selectedImages.forEach((image) => {
       formData.append("images", image)
-      console.log(`Adding image ${index + 1}:`, image.name)
     })
 
     try {
@@ -68,10 +62,8 @@ export default function NuevaObra() {
     }
   }
 
-  const handleImagesSelect = (files: File[], order: number[]) => {
-    console.log("Images selected in parent:", files.length, "Order:", order)
+  const handleImagesChange = (files: File[]) => {
     setSelectedImages(files)
-    setImageOrder(order)
   }
 
   if (!isAuthenticated) {
@@ -238,23 +230,10 @@ export default function NuevaObra() {
               <Card>
                 <CardHeader>
                   <CardTitle>Imágenes de la Obra</CardTitle>
-                  <p className="text-sm text-gray-600">
-                    Máximo 3 imágenes. Arrastra para reordenar. La primera será la imagen principal.
-                  </p>
+                  <p className="text-sm text-gray-600">Máximo 3 imágenes. La primera será la principal.</p>
                 </CardHeader>
                 <CardContent>
-                  <SortableImageUpload onImagesSelect={handleImagesSelect} maxImages={3} />
-                  {selectedImages.length > 0 && (
-                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm text-green-700 font-medium">
-                        ✅ {selectedImages.length} imagen{selectedImages.length !== 1 ? "es" : ""} lista
-                        {selectedImages.length !== 1 ? "s" : ""} para subir
-                      </p>
-                      <p className="text-xs text-green-600 mt-1">
-                        Orden: {selectedImages.map((_, i) => `${i + 1}${i === 0 ? " (Principal)" : ""}`).join(" → ")}
-                      </p>
-                    </div>
-                  )}
+                  <SimpleImageUpload onImagesChange={handleImagesChange} maxImages={3} />
                 </CardContent>
               </Card>
 
@@ -303,12 +282,6 @@ export default function NuevaObra() {
                   )}
                 </Button>
               </div>
-
-              {selectedImages.length === 0 && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-800">⚠️ Selecciona al menos una imagen para continuar</p>
-                </div>
-              )}
 
               {isLoading && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
