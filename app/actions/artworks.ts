@@ -9,50 +9,6 @@ const SUPABASE_ENABLED =
 
 const BUCKET_NAME = "artworks"
 
-// Función para comprimir imagen
-function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<File> {
-  return new Promise((resolve) => {
-    const canvas = document.createElement("canvas")
-    const ctx = canvas.getContext("2d")
-    const img = new Image()
-
-    img.onload = () => {
-      // Calcular nuevas dimensiones manteniendo aspect ratio
-      let { width, height } = img
-
-      if (width > maxWidth) {
-        height = (height * maxWidth) / width
-        width = maxWidth
-      }
-
-      canvas.width = width
-      canvas.height = height
-
-      // Dibujar imagen redimensionada
-      ctx?.drawImage(img, 0, 0, width, height)
-
-      // Convertir a blob
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            const compressedFile = new File([blob], file.name, {
-              type: "image/jpeg",
-              lastModified: Date.now(),
-            })
-            resolve(compressedFile)
-          } else {
-            resolve(file) // Si falla la compresión, usar archivo original
-          }
-        },
-        "image/jpeg",
-        quality,
-      )
-    }
-
-    img.src = URL.createObjectURL(file)
-  })
-}
-
 // Datos de ejemplo con múltiples imágenes placeholder
 const SAMPLE_ARTWORKS = [
   {
@@ -333,14 +289,6 @@ export async function createArtwork(formData: FormData) {
       throw new Error("Debes seleccionar al menos una imagen")
     }
 
-    // Validar tamaño de archivos (8MB máximo por imagen)
-    const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
-    for (const image of images) {
-      if (image.size > MAX_FILE_SIZE) {
-        throw new Error(`La imagen "${image.name}" es demasiado grande. Máximo 8MB por imagen.`)
-      }
-    }
-
     console.log("✅ Validation passed, starting image upload...")
 
     let mainImageUrl = null
@@ -509,14 +457,6 @@ export async function updateArtwork(id: string, formData: FormData) {
     // 2. Manejar reemplazo de imágenes si se proporcionan nuevas
     if (images.length > 0 && images[0].size > 0) {
       console.log("🖼️ Processing new images...")
-
-      // Validar tamaño de imágenes
-      const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
-      for (const image of images) {
-        if (image.size > MAX_FILE_SIZE) {
-          throw new Error(`La imagen "${image.name}" es demasiado grande. Máximo 8MB.`)
-        }
-      }
 
       // Obtener URLs de imágenes actuales para eliminarlas del storage
       const { data: currentGalleryImages, error: galleryFetchError } = await supabase

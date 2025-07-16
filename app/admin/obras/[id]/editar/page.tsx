@@ -81,17 +81,8 @@ export default function EditarObra({ params }: PageProps) {
 
     const formData = new FormData(e.target as HTMLFormElement)
 
-    // Client-side validation for new images - MEJORADA
+    // Añadir imágenes si se seleccionaron nuevas
     if (selectedImages.length > 0) {
-      const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
-      for (const image of selectedImages) {
-        if (image.size > MAX_FILE_SIZE) {
-          setError("No se pudieron guardar los cambios, las imágenes exceden los 8mb.")
-          setIsLoading(false)
-          return
-        }
-      }
-
       selectedImages.forEach((image) => {
         formData.append("images", image)
       })
@@ -115,14 +106,15 @@ export default function EditarObra({ params }: PageProps) {
         await loadArtwork()
         // LUEGO mostrar el mensaje de éxito con las nuevas imágenes
         setSuccess(true)
-        // NO REDIRIGIR - SE QUEDA EN LA PÁGINA DE EDICIÓN
+        // Limpiar las imágenes seleccionadas
+        setSelectedImages([])
       } else {
         console.error("❌ Invalid result from updateArtwork:", result)
-        throw new Error("La obra se procesó pero no se recibió confirmación válida del servidor.")
+        throw new Error("Error al actualizar la obra. Inténtalo de nuevo.")
       }
     } catch (error: any) {
       console.error("💥 Error updating artwork:", error)
-      setError(error.message || "Error desconocido al actualizar la obra.")
+      setError(error.message || "Error al actualizar la obra. Inténtalo de nuevo.")
       setSuccess(false)
     } finally {
       setIsLoading(false)
@@ -146,10 +138,6 @@ export default function EditarObra({ params }: PageProps) {
       }
     })
   }
-
-  // Validar imágenes seleccionadas
-  const hasOversizedImages = selectedImages.some((img) => img.size > 8 * 1024 * 1024)
-  const isValidSelection = selectedImages.length === 0 || !hasOversizedImages
 
   if (!isAuthenticated || loading) {
     return (
@@ -368,7 +356,7 @@ export default function EditarObra({ params }: PageProps) {
                   <CardTitle>Reemplazar Imágenes</CardTitle>
                   <p className="text-sm text-gray-600">
                     Para cambiar las imágenes, selecciona un nuevo set. Esto reemplazará todas las imágenes actuales.
-                    Máximo 8MB por imagen.
+                    Cualquier formato y tamaño.
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -409,11 +397,7 @@ export default function EditarObra({ params }: PageProps) {
               </Card>
 
               <div className="flex flex-col gap-3">
-                <Button
-                  type="submit"
-                  className="w-full bg-gray-900 hover:bg-gray-800"
-                  disabled={isLoading || !isValidSelection}
-                >
+                <Button type="submit" className="w-full bg-gray-900 hover:bg-gray-800" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -455,7 +439,7 @@ export default function EditarObra({ params }: PageProps) {
                 </div>
               )}
 
-              {/* Mensajes de estado - MEJORADOS */}
+              {/* Mensajes de estado */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -484,8 +468,7 @@ export default function EditarObra({ params }: PageProps) {
                 </div>
               )}
 
-              {/* MENSAJE NEUTRO SIN COLOR NI EMOJI PARA NUEVAS IMÁGENES */}
-              {selectedImages.length > 0 && isValidSelection && !isLoading && (
+              {selectedImages.length > 0 && !isLoading && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <p className="text-sm text-gray-700">
                     {selectedImages.length} nueva{selectedImages.length > 1 ? "s" : ""} imagen

@@ -7,13 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Save, CheckCircle, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { SimpleImageUpload } from "@/components/simple-image-upload"
 import { createArtwork } from "@/app/actions/artworks"
-import { SuccessPopup } from "@/components/success-popup"
 
 export default function NuevaObra() {
   const router = useRouter()
@@ -21,7 +20,7 @@ export default function NuevaObra() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [isEspatula, setIsEspatula] = useState(false)
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string>("")
 
   useEffect(() => {
@@ -33,30 +32,31 @@ export default function NuevaObra() {
     }
   }, [router])
 
+  // Efecto para manejar el éxito y redirección
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        router.push("/admin/obras")
+      }, 2000) // 2 segundos para ver el mensaje
+      return () => clearTimeout(timer)
+    }
+  }, [success, router])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setSuccess(false)
     setError("")
 
     console.log("🚀 Starting form submission...")
 
     const formData = new FormData(e.target as HTMLFormElement)
 
-    // Validaciones del lado del cliente - MEJORADAS
+    // Solo validar que hay imágenes
     if (selectedImages.length === 0) {
       setError("Debes seleccionar al menos una imagen.")
       setIsLoading(false)
       return
-    }
-
-    // Validar tamaño de archivos (8MB máximo) - MENSAJE ESPECÍFICO
-    const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
-    for (const image of selectedImages) {
-      if (image.size > MAX_FILE_SIZE) {
-        setError("No se creo la obra, las imagenes exceden los 8mb.")
-        setIsLoading(false)
-        return
-      }
     }
 
     if (isEspatula) {
@@ -78,45 +78,24 @@ export default function NuevaObra() {
       // Verificar que el resultado tenga un ID válido
       if (result && (result.id || result.title)) {
         console.log("🎉 Artwork created successfully!")
-        setShowSuccessPopup(true)
+        setSuccess(true)
+        // La redirección se maneja en el useEffect
       } else {
         console.error("❌ Invalid result from createArtwork:", result)
-        throw new Error("No se creo la obra, las imagenes exceden los 8mb.")
+        throw new Error("Error al crear la obra. Inténtalo de nuevo.")
       }
     } catch (error: any) {
       console.error("💥 Error creating artwork:", error)
-      // MENSAJE ESPECÍFICO PARA ERRORES DE TAMAÑO
-      if (
-        error.message.includes("8MB") ||
-        error.message.includes("8mb") ||
-        error.message.includes("demasiado grande")
-      ) {
-        setError("No se creo la obra, las imagenes exceden los 8mb.")
-      } else {
-        setError("No se creo la obra, las imagenes exceden los 8mb.")
-      }
+      setError(error.message || "Error al crear la obra. Inténtalo de nuevo.")
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleSuccessPopupClose = () => {
-    setShowSuccessPopup(false)
-    // Redirigir después de cerrar el popup
-    setTimeout(() => {
-      router.push("/admin/obras")
-    }, 300)
   }
 
   const handleImagesChange = (files: File[]) => {
     setSelectedImages(files)
     setError("") // Limpiar error cuando se seleccionan imágenes
   }
-
-  // Calcular si las imágenes seleccionadas son válidas
-  const hasValidImages = selectedImages.length > 0
-  const hasOversizedImages = selectedImages.some((img) => img.size > 8 * 1024 * 1024)
-  const isValidSelection = hasValidImages && !hasOversizedImages
 
   if (!isAuthenticated) {
     return (
@@ -129,18 +108,27 @@ export default function NuevaObra() {
     )
   }
 
+  // PANTALLA DE ÉXITO COMPLETA
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-white rounded-lg p-8 shadow-lg border">
+            <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">¡Obra Creada con Éxito!</h2>
+            <p className="text-gray-600 mb-6">La nueva obra se ha guardado correctamente con todas sus imágenes.</p>
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+              <span>Redirigiendo al panel de obras...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* SUCCESS POPUP */}
-      <SuccessPopup
-        isOpen={showSuccessPopup}
-        title="¡Obra Creada con Éxito!"
-        message="La nueva obra se ha guardado correctamente con todas sus imágenes."
-        onClose={handleSuccessPopupClose}
-        autoClose={true}
-        autoCloseDelay={2000}
-      />
-
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center py-4">
@@ -275,7 +263,7 @@ export default function NuevaObra() {
               <Card>
                 <CardHeader>
                   <CardTitle>Imágenes de la Obra</CardTitle>
-                  <p className="text-sm text-gray-600">Máximo 3 imágenes. Máximo 8MB por imagen.</p>
+                  <p className="text-sm text-gray-600">Máximo 3 imágenes. Cualquier formato y tamaño.</p>
                 </CardHeader>
                 <CardContent>
                   <SimpleImageUpload onImagesChange={handleImagesChange} maxImages={3} />
@@ -312,7 +300,7 @@ export default function NuevaObra() {
                 <Button
                   type="submit"
                   className="flex-1 bg-gray-900 hover:bg-gray-800"
-                  disabled={isLoading || !isValidSelection}
+                  disabled={isLoading || selectedImages.length === 0}
                 >
                   {isLoading ? (
                     <>
@@ -328,7 +316,7 @@ export default function NuevaObra() {
                 </Button>
               </div>
 
-              {/* Mensajes de estado - MEJORADOS */}
+              {/* Mensajes de estado */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -362,8 +350,7 @@ export default function NuevaObra() {
                 </div>
               )}
 
-              {/* MENSAJE NEUTRO SIN COLOR NI EMOJI */}
-              {isValidSelection && !isLoading && (
+              {selectedImages.length > 0 && !isLoading && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <p className="text-sm text-gray-700">
                     {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""} lista

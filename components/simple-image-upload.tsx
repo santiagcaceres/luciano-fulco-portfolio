@@ -39,8 +39,6 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
       return
     }
 
-    // REMOVIDO: Validación de tamaño aquí - ahora se hace en las páginas principales
-
     // Limpiar URLs viejas antes de crear nuevas
     images.forEach((image) => URL.revokeObjectURL(image.previewUrl))
 
@@ -80,7 +78,7 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="*/*"
         multiple
         onChange={(e) => handleFileSelection(e.target.files)}
         className="hidden"
@@ -95,7 +93,7 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
         <p className="text-sm font-medium text-gray-700 mb-1">
           {images.length > 0 ? "Cambiar Selección" : "Seleccionar Imágenes"}
         </p>
-        <p className="text-xs text-gray-400 mb-4">Cualquier formato • Máximo 8MB por archivo</p>
+        <p className="text-xs text-gray-400 mb-4">Cualquier formato • Cualquier tamaño</p>
         <p className="text-xs text-gray-500">
           {images.length} de {maxImages} imágenes seleccionadas
         </p>
