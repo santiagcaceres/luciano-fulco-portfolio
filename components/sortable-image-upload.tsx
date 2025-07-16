@@ -19,6 +19,7 @@ interface ImageItem {
   file?: File
   url: string
   isNew: boolean
+  originalIndex: number
 }
 
 export function SortableImageUpload({
@@ -41,10 +42,20 @@ export function SortableImageUpload({
       id: `current-${index}`,
       url,
       isNew: false,
+      originalIndex: index,
     }))
     setImages(imageItems)
     console.log("SortableImageUpload - Current images:", validCurrentImages)
   }, [currentImages])
+
+  const createImagePreview = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => resolve(e.target?.result as string)
+      reader.onerror = () => reject(new Error("Error al leer el archivo"))
+      reader.readAsDataURL(file)
+    })
+  }
 
   const handleFilesSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -69,34 +80,32 @@ export function SortableImageUpload({
     try {
       const newImageItems: ImageItem[] = await Promise.all(
         validFiles.map(async (file, index) => {
-          const url = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = (e) => resolve(e.target?.result as string)
-            reader.onerror = () => reject(new Error("Error al leer el archivo"))
-            reader.readAsDataURL(file)
-          })
-
+          const url = await createImagePreview(file)
           return {
             id: `new-${Date.now()}-${index}`,
             file,
             url,
             isNew: true,
+            originalIndex: index,
           }
         }),
       )
 
       setImages(newImageItems)
-
-      // Notificar cambios
-      const files = newImageItems.map((item) => item.file!).filter(Boolean)
-      const order = newImageItems.map((_, index) => index)
-      onImagesSelect(files, order)
+      notifyParent(newImageItems)
 
       console.log("New files selected:", validFiles.length)
     } catch (err) {
       console.error("Error processing files:", err)
       setError("Error al procesar los archivos")
     }
+  }
+
+  const notifyParent = (imageItems: ImageItem[]) => {
+    const files = imageItems.map((item) => item.file).filter(Boolean) as File[]
+    const order = imageItems.map((_, index) => index)
+    console.log("Notifying parent - Files:", files.length, "Order:", order)
+    onImagesSelect(files, order)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,11 +133,7 @@ export function SortableImageUpload({
   const removeImage = (index: number) => {
     const newImages = images.filter((_, i) => i !== index)
     setImages(newImages)
-
-    // Notificar cambios
-    const files = newImages.map((item) => item.file!).filter(Boolean)
-    const order = newImages.map((_, i) => i)
-    onImagesSelect(files, order)
+    notifyParent(newImages)
     setError("")
 
     if (fileInputRef.current) {
@@ -144,17 +149,23 @@ export function SortableImageUpload({
     newImages.splice(toIndex, 0, movedImage)
 
     setImages(newImages)
-
-    // Notificar cambios
-    const files = newImages.map((item) => item.file!).filter(Boolean)
-    const order = newImages.map((_, i) => i)
-    onImagesSelect(files, order)
+    notifyParent(newImages)
   }
 
   const handleImageDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index)
     e.dataTransfer.effectAllowed = "move"
     e.dataTransfer.setData("text/html", "")
+
+    // Agregar clase visual al elemento arrastrado
+    const target = e.target as HTMLElement
+    target.style.opacity = "0.5"
+  }
+
+  const handleImageDragEnd = (e: React.DragEvent) => {
+    const target = e.target as HTMLElement
+    target.style.opacity = "1"
+    setDraggedIndex(null)
   }
 
   const handleImageDragOver = (e: React.DragEvent, index: number) => {
@@ -187,49 +198,62 @@ export function SortableImageUpload({
 
       {images.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-700">
-            {allowEdit
-              ? "Imágenes actuales (arrastra para reordenar):"
-              : "Imágenes seleccionadas (arrastra para reordenar):"}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-700">
+              {allowEdit
+                ? "Imágenes actuales (arrastra para reordenar):"
+                : "Imágenes seleccionadas (arrastra para reordenar):"}
+            </p>
+            <p className="text-xs text-gray-500">
+              {images.length} de {maxImages}
+            </p>
+          </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {images.map((image, index) => (
               <div
                 key={image.id}
                 draggable
                 onDragStart={(e) => handleImageDragStart(e, index)}
+                onDragEnd={handleImageDragEnd}
                 onDragOver={(e) => handleImageDragOver(e, index)}
                 onDrop={(e) => handleImageDrop(e, index)}
-                className={`relative group border-2 rounded-lg p-3 transition-all ${
+                className={`relative group border-2 rounded-lg p-3 transition-all cursor-move ${
                   draggedIndex === index
-                    ? "border-blue-500 bg-blue-50 opacity-50"
-                    : "border-gray-200 hover:border-gray-300 bg-white"
+                    ? "border-blue-500 bg-blue-50 shadow-lg scale-105"
+                    : "border-gray-200 hover:border-gray-300 bg-white hover:shadow-md"
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  {/* Drag Handle */}
-                  <div className="flex flex-col items-center gap-1 cursor-move text-gray-400 hover:text-gray-600">
+                  {/* Drag Handle y Número */}
+                  <div className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-move">
                     <GripVertical className="w-5 h-5" />
-                    <span className="text-xs font-medium">{index + 1}</span>
+                    <div className="flex items-center justify-center w-6 h-6 bg-gray-100 rounded-full text-xs font-bold text-gray-700">
+                      {index + 1}
+                    </div>
                   </div>
 
                   {/* Image Preview */}
-                  <div className="relative">
+                  <div className="relative flex-shrink-0">
                     <Image
                       src={image.url || "/placeholder.svg"}
                       alt={`Preview ${index + 1}`}
                       width={120}
                       height={80}
-                      className="w-30 h-20 object-cover rounded border"
+                      className="w-30 h-20 object-cover rounded border shadow-sm"
                       onError={(e) => {
                         console.error("Error loading preview:", image.url)
                         e.currentTarget.src = `https://placehold.co/120x80/E5E7EB/374151/jpeg?text=Error`
                       }}
                     />
                     {index === 0 && (
-                      <div className="absolute -top-2 -left-2 bg-green-600 text-white px-2 py-1 rounded-full text-xs font-medium">
+                      <div className="absolute -top-2 -left-2 bg-green-600 text-white px-2 py-1 rounded-full text-xs font-medium shadow-md">
                         Principal
+                      </div>
+                    )}
+                    {image.isNew && (
+                      <div className="absolute -top-2 -right-2 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium shadow-md">
+                        Nueva
                       </div>
                     )}
                   </div>
@@ -241,7 +265,10 @@ export function SortableImageUpload({
                         <p className="text-sm font-medium text-gray-900">
                           Imagen {index + 1} {index === 0 && "(Principal)"}
                         </p>
-                        <p className="text-xs text-gray-500">{image.isNew ? "Nueva imagen" : "Imagen actual"}</p>
+                        <p className="text-xs text-gray-500">
+                          {image.isNew ? "Nueva imagen" : "Imagen actual"}
+                          {image.file && ` • ${(image.file.size / 1024 / 1024).toFixed(1)}MB`}
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -253,7 +280,8 @@ export function SortableImageUpload({
                             size="sm"
                             onClick={() => moveImage(index, index - 1)}
                             disabled={index === 0}
-                            className="h-6 w-6 p-0"
+                            className="h-6 w-6 p-0 hover:bg-gray-100"
+                            title="Mover arriba"
                           >
                             <MoveUp className="w-3 h-3" />
                           </Button>
@@ -263,7 +291,8 @@ export function SortableImageUpload({
                             size="sm"
                             onClick={() => moveImage(index, index + 1)}
                             disabled={index === images.length - 1}
-                            className="h-6 w-6 p-0"
+                            className="h-6 w-6 p-0 hover:bg-gray-100"
+                            title="Mover abajo"
                           >
                             <MoveDown className="w-3 h-3" />
                           </Button>
@@ -276,6 +305,7 @@ export function SortableImageUpload({
                           size="sm"
                           onClick={() => removeImage(index)}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                          title="Eliminar imagen"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -283,6 +313,13 @@ export function SortableImageUpload({
                     </div>
                   </div>
                 </div>
+
+                {/* Drag indicator */}
+                {draggedIndex === index && (
+                  <div className="absolute inset-0 border-2 border-dashed border-blue-400 rounded-lg bg-blue-100/50 flex items-center justify-center">
+                    <p className="text-blue-700 font-medium text-sm">Arrastrando...</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -325,15 +362,14 @@ export function SortableImageUpload({
       )}
 
       <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-        <p>
-          <strong>Consejos para ordenar imágenes:</strong>
-        </p>
-        <ul className="list-disc list-inside space-y-1 mt-1">
+        <p className="font-medium mb-2">💡 Consejos para ordenar imágenes:</p>
+        <ul className="list-disc list-inside space-y-1">
           <li>🥇 La primera imagen será la imagen principal de la obra</li>
-          <li>🖱️ Arrastra las imágenes para reordenarlas</li>
+          <li>🖱️ Arrastra las imágenes para reordenarlas fácilmente</li>
           <li>⬆️⬇️ Usa los botones de flecha para mover una posición</li>
+          <li>👀 Las previews muestran exactamente cómo se verán</li>
+          <li>🗑️ Elimina imágenes individuales con el botón rojo</li>
           <li>📱 El orden se mantiene en la galería pública</li>
-          <li>🗑️ Elimina imágenes con el botón rojo</li>
         </ul>
       </div>
     </div>
