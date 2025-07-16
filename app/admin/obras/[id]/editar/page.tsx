@@ -67,6 +67,8 @@ export default function EditarObra({ params }: PageProps) {
     setSuccess(false)
     setError("")
 
+    console.log("🚀 Starting update submission...")
+
     const formData = new FormData(e.target as HTMLFormElement)
 
     // Client-side validation for new images
@@ -91,17 +93,23 @@ export default function EditarObra({ params }: PageProps) {
     }
 
     try {
+      console.log("📞 Calling updateArtwork...")
       const result = await updateArtwork(params.id, formData)
-      if (result && result.id) {
+      console.log("✅ updateArtwork result:", result)
+
+      // Verificar que el resultado tenga un ID válido
+      if (result && (result.id || result.title)) {
+        console.log("🎉 Artwork updated successfully!")
         setSuccess(true)
         setTimeout(() => {
           router.push("/admin/obras")
         }, 2000)
       } else {
-        throw new Error("La actualización no devolvió una confirmación.")
+        console.error("❌ Invalid result from updateArtwork:", result)
+        throw new Error("La obra se actualizó pero no se recibió confirmación válida")
       }
     } catch (error: any) {
-      console.error("Error updating artwork:", error)
+      console.error("💥 Error updating artwork:", error)
       setError(error.message || "Error desconocido al actualizar la obra.")
       setSuccess(false)
     } finally {

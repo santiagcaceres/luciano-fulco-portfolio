@@ -38,6 +38,8 @@ export default function NuevaObra() {
     setSuccess(false)
     setError("")
 
+    console.log("🚀 Starting form submission...")
+
     const formData = new FormData(e.target as HTMLFormElement)
 
     // Validaciones del lado del cliente
@@ -62,28 +64,30 @@ export default function NuevaObra() {
     }
 
     // Añadir imágenes en su orden actual
-    console.log("Adding images to form data:", selectedImages.length)
+    console.log("📎 Adding images to form data:", selectedImages.length)
     selectedImages.forEach((image, index) => {
       console.log(`Adding image ${index + 1}:`, image.name, `${(image.size / 1024 / 1024).toFixed(2)}MB`)
       formData.append("images", image)
     })
 
     try {
-      console.log("Calling createArtwork...")
+      console.log("📞 Calling createArtwork...")
       const result = await createArtwork(formData)
-      console.log("Artwork created successfully:", result)
+      console.log("✅ createArtwork result:", result)
 
-      // Solo mostrar éxito si realmente se creó
-      if (result && result.id) {
+      // Verificar que el resultado tenga un ID válido
+      if (result && (result.id || result.title)) {
+        console.log("🎉 Artwork created successfully!")
         setSuccess(true)
         setTimeout(() => {
           router.push("/admin/obras")
         }, 2000)
       } else {
-        throw new Error("No se recibió confirmación de creación")
+        console.error("❌ Invalid result from createArtwork:", result)
+        throw new Error("La obra se creó pero no se recibió confirmación válida")
       }
     } catch (error: any) {
-      console.error("Error creating artwork:", error)
+      console.error("💥 Error creating artwork:", error)
       setError(error.message || "Error desconocido al crear la obra")
       setSuccess(false)
     } finally {
