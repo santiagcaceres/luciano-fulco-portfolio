@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 
 const SUPABASE_ENABLED =
   !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -318,11 +317,11 @@ export async function createArtwork(formData: FormData) {
       throw new Error("Debes seleccionar al menos una imagen")
     }
 
-    // Validar tamaño de archivos (5MB máximo por imagen)
-    const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+    // Validar tamaño de archivos (8MB máximo por imagen)
+    const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
     for (const image of images) {
       if (image.size > MAX_FILE_SIZE) {
-        throw new Error(`La imagen "${image.name}" es demasiado grande. Máximo 5MB por imagen.`)
+        throw new Error(`La imagen "${image.name}" es demasiado grande. Máximo 8MB por imagen.`)
       }
     }
 
@@ -449,106 +448,105 @@ export async function createArtwork(formData: FormData) {
 }
 
 export async function updateArtwork(id: string, formData: FormData) {
+  if (!SUPABASE_ENABLED) throw new Error("Base de datos no configurada")
+
   const supabase = createClient()
-  const rawFormData = Object.fromEntries(formData.entries())
-  const images = formData.getAll("images") as File[]
 
-  let mainImageUrl = null
-  const galleryUrls: string[] = []
+  try {
+    const rawFormData = Object.fromEntries(formData.entries())
+    const images = formData.getAll("images") as File[]
 
-  // Si hay nuevas imágenes, procesarlas
-  if (images.length > 0 && images[0].size > 0) {
-    // Obtener la obra actual para eliminar imágenes viejas
-    const { data: currentArtwork } = await supabase.from("artworks").select("main_image_url").eq("id", id).single()
-    const { data: currentGallery } = await supabase.from("artwork_images").select("image_url").eq("artwork_id", id)
-
-    // Eliminar imágenes viejas del storage
-    if (currentArtwork?.main_image_url) {
-      const fileName = currentArtwork.main_image_url.split("/").pop()
-      if (fileName) {
-        await supabase.storage.from(BUCKET_NAME).remove([fileName])
-      }
+    // 1. Prepare artwork data (text fields)
+    const artworkUpdateData: { [key: string]: any } = {
+      title: rawFormData.title as string,
+      category: rawFormData.category as string,
+      subcategory: (rawFormData.subcategory as string) || null,
+      price: Number(rawFormData.price),
+      description: rawFormData.description as string,
+      detailed_description: (rawFormData.detailedDescription as string) || null,
+      year: Number(rawFormData.year) || new Date().getFullYear(),
+      dimensions: (rawFormData.dimensions as string) || null,
+      technique: (rawFormData.technique as string) || null,
+      status: (rawFormData.status as string) || "Disponible",
+      featured: rawFormData.featured === "on",
     }
 
-    if (currentGallery && currentGallery.length > 0) {
-      const filesToDelete = currentGallery.map((img) => img.image_url.split("/").pop()).filter(Boolean)
-      if (filesToDelete.length > 0) {
-        await supabase.storage.from(BUCKET_NAME).remove(filesToDelete)
-      }
-    }
-
-    // Eliminar registros de galería
-    await supabase.from("artwork_images").delete().eq("artwork_id", id)
-
-    // Subir nuevas imágenes
-    for (let i = 0; i < images.length; i++) {
-      const image = images[i]
-      if (image.size > 0) {
-        const filePath = `${Date.now()}-${i}-${image.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-
-        const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(filePath, image)
-        if (uploadError) {
-          console.error("Error uploading image:", uploadError)
-          continue
+    // 2. Handle image replacement if new images are provided
+    if (images.length > 0 && images[0].size > 0) {
+      // Validate image sizes
+      const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
+      for (const image of images) {
+        if (image.size > MAX_FILE_SIZE) {
+          throw new Error(`La imagen "${image.name}" es demasiado grande. Máximo 8MB.`)
         }
+      }
+
+      // Get current image URLs to delete them from storage
+      const { data: currentGalleryImages, error: galleryFetchError } = await supabase
+        .from("artwork_images")
+        .select("image_url")
+        .eq("artwork_id", id)
+      if (galleryFetchError) throw new Error("Error al obtener imágenes actuales.")
+
+      const filesToDelete = currentGalleryImages?.map((img) => img.image_url.split("/").pop()).filter(Boolean) || []
+      if (filesToDelete.length > 0) {
+        console.log("Deleting old images from storage:", filesToDelete)
+        await supabase.storage.from(BUCKET_NAME).remove(filesToDelete as string[])
+      }
+
+      // Delete old gallery records from the database
+      await supabase.from("artwork_images").delete().eq("artwork_id", id)
+
+      // Upload new images
+      const newImageUrls: string[] = []
+      for (let i = 0; i < images.length; i++) {
+        const image = images[i]
+        const filePath = `${Date.now()}-${i}-${image.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+        const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(filePath, image)
+        if (uploadError) throw new Error(`Error subiendo la nueva imagen ${i + 1}: ${uploadError.message}`)
 
         const {
           data: { publicUrl },
         } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath)
+        newImageUrls.push(publicUrl)
+      }
 
-        if (i === 0) {
-          mainImageUrl = publicUrl
-        } else {
-          galleryUrls.push(publicUrl)
-        }
+      // Set the new main_image_url
+      artworkUpdateData.main_image_url = newImageUrls[0] || null
+
+      // Insert new gallery records
+      if (newImageUrls.length > 0) {
+        const galleryInserts = newImageUrls.map((url) => ({ artwork_id: id, image_url: url }))
+        const { error: galleryInsertError } = await supabase.from("artwork_images").insert(galleryInserts)
+        if (galleryInsertError) console.error("Error inserting new gallery images:", galleryInsertError.message)
       }
     }
 
-    // Insertar nuevas imágenes de galería
-    if (galleryUrls.length > 0) {
-      const galleryInserts = galleryUrls.map((url) => ({
-        artwork_id: id,
-        image_url: url,
-      }))
+    // 3. Update the artwork record in the database
+    const { data: updatedArtwork, error: updateError } = await supabase
+      .from("artworks")
+      .update(artworkUpdateData)
+      .eq("id", id)
+      .select()
+      .single()
 
-      const { error: galleryError } = await supabase.from("artwork_images").insert(galleryInserts)
-      if (galleryError) {
-        console.error("Error inserting gallery images:", galleryError)
-      }
+    if (updateError) {
+      throw new Error(`Error al actualizar la obra: ${updateError.message}`)
     }
+
+    // 4. Revalidate paths and return success
+    revalidatePath("/admin/obras")
+    revalidatePath(`/admin/obras/${id}/editar`)
+    revalidatePath("/obras")
+    revalidatePath(`/obra/${id}`)
+    revalidatePath("/")
+
+    console.log("Artwork updated successfully:", updatedArtwork)
+    return updatedArtwork
+  } catch (error) {
+    console.error("Error in updateArtwork:", error)
+    throw error // Re-throw the error to be caught by the client
   }
-
-  // Actualizar datos de la obra
-  const updateData: any = {
-    title: rawFormData.title as string,
-    category: rawFormData.category as string,
-    subcategory: (rawFormData.subcategory as string) || null,
-    price: Number(rawFormData.price),
-    description: rawFormData.description as string,
-    detailed_description: (rawFormData.detailedDescription as string) || null,
-    year: Number(rawFormData.year) || new Date().getFullYear(),
-    dimensions: (rawFormData.dimensions as string) || null,
-    technique: (rawFormData.technique as string) || null,
-    status: (rawFormData.status as string) || "Disponible",
-    featured: rawFormData.featured === "on",
-  }
-
-  // Solo actualizar main_image_url si se subieron nuevas imágenes
-  if (mainImageUrl) {
-    updateData.main_image_url = mainImageUrl
-  }
-
-  const { error } = await supabase.from("artworks").update(updateData).eq("id", id)
-
-  if (error) {
-    console.error("Error updating artwork:", error)
-    throw new Error("Error al actualizar la obra.")
-  }
-
-  revalidatePath("/admin/obras")
-  revalidatePath("/obras")
-  revalidatePath("/")
-  redirect("/admin/obras")
 }
 
 export async function deleteArtwork(id: string) {

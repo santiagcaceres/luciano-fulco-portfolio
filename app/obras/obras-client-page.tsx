@@ -5,7 +5,7 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Palette, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeft } from "lucide-react"
+import { Palette, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeft, Check, Filter } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useState, useEffect, useMemo } from "react"
@@ -19,6 +19,7 @@ interface ObrasClientPageProps {
 export default function ObrasClientPage({ artworks, categories, sortOptions }: ObrasClientPageProps) {
   const [selectedCategory, setSelectedCategory] = useState("todos")
   const [selectedSort, setSelectedSort] = useState("default")
+  const [selectedStatus, setSelectedStatus] = useState("todos")
   const [isScrolled, setIsScrolled] = useState(false)
 
   const categoryIcons: { [key: string]: React.ElementType } = {
@@ -37,6 +38,13 @@ export default function ObrasClientPage({ artworks, categories, sortOptions }: O
     "price-desc": ArrowDown,
   }
 
+  const statusOptions = [
+    { id: "todos", name: "Todos los Estados" },
+    { id: "disponible", name: "Disponibles" },
+    { id: "vendida", name: "Vendidas" },
+    { id: "reservado", name: "Reservados" },
+  ]
+
   useEffect(() => {
     window.scrollTo(0, 0)
     const handleScroll = () => setIsScrolled(window.scrollY > 100)
@@ -46,9 +54,18 @@ export default function ObrasClientPage({ artworks, categories, sortOptions }: O
 
   const filteredArtworks = useMemo(() => {
     let filtered = artworks
+
+    // Filter by category
     if (selectedCategory !== "todos") {
       filtered = filtered.filter((artwork) => artwork.category === selectedCategory)
     }
+
+    // Filter by status
+    if (selectedStatus !== "todos") {
+      filtered = filtered.filter((artwork) => artwork.status.toLowerCase() === selectedStatus)
+    }
+
+    // Sort
     if (selectedSort === "price-asc") {
       return [...filtered].sort((a, b) => a.price - b.price)
     }
@@ -56,7 +73,7 @@ export default function ObrasClientPage({ artworks, categories, sortOptions }: O
       return [...filtered].sort((a, b) => b.price - a.price)
     }
     return filtered
-  }, [selectedCategory, selectedSort, artworks])
+  }, [selectedCategory, selectedSort, selectedStatus, artworks])
 
   return (
     <div className="min-h-screen relative">
@@ -113,46 +130,72 @@ export default function ObrasClientPage({ artworks, categories, sortOptions }: O
         </section>
 
         {/* Filtros */}
-        <div className="bg-white/90 backdrop-blur-sm border-b shadow-sm">
+        <div className="bg-white/90 backdrop-blur-sm border-b shadow-sm sticky top-[68px] md:top-[84px] z-40">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-              {/* Categorías */}
-              <div className="flex flex-wrap justify-center lg:justify-start gap-2">
-                <span className="text-sm font-medium text-gray-700 flex items-center mr-3">Categoría:</span>
-                {categories.map((category) => {
-                  const Icon = categoryIcons[category.id] || Palette
-                  return (
-                    <Button
-                      key={category.id}
-                      onClick={() => setSelectedCategory(category.id)}
-                      variant={category.id === selectedCategory ? "default" : "outline"}
-                      className={`flex items-center gap-1 text-xs md:text-sm px-3 py-1.5 h-8 ${
-                        category.id === selectedCategory
-                          ? "bg-black hover:bg-gray-800 text-white"
-                          : "border-black text-black hover:bg-black hover:text-white"
-                      }`}
-                      size="sm"
-                    >
-                      <Icon className="w-3 h-3" />
-                      <span className="hidden sm:inline">{category.name}</span>
-                      <span className="sm:hidden">{category.name.split(" ")[0]}</span>
-                    </Button>
-                  )
-                })}
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+                {/* Categorías */}
+                <div className="flex flex-wrap justify-center lg:justify-start gap-2">
+                  <span className="text-sm font-medium text-gray-700 flex items-center mr-3">Categoría:</span>
+                  {categories.map((category) => {
+                    const Icon = categoryIcons[category.id] || Palette
+                    return (
+                      <Button
+                        key={category.id}
+                        onClick={() => setSelectedCategory(category.id)}
+                        variant={category.id === selectedCategory ? "default" : "outline"}
+                        className={`flex items-center gap-1 text-xs md:text-sm px-3 py-1.5 h-8 ${
+                          category.id === selectedCategory
+                            ? "bg-black hover:bg-gray-800 text-white"
+                            : "border-black text-black hover:bg-black hover:text-white"
+                        }`}
+                        size="sm"
+                      >
+                        <Icon className="w-3 h-3" />
+                        <span className="hidden sm:inline">{category.name}</span>
+                        <span className="sm:hidden">{category.name.split(" ")[0]}</span>
+                      </Button>
+                    )
+                  })}
+                </div>
+
+                {/* Ordenar */}
+                <div className="flex flex-wrap justify-center lg:justify-end gap-2">
+                  <span className="text-sm font-medium text-gray-700 flex items-center mr-3">Ordenar:</span>
+                  {sortOptions.map((option) => {
+                    const Icon = sortIcons[option.id] || ArrowUpDown
+                    return (
+                      <Button
+                        key={option.id}
+                        onClick={() => setSelectedSort(option.id)}
+                        variant={option.id === selectedSort ? "default" : "outline"}
+                        className={`flex items-center gap-1 text-xs md:text-sm px-3 py-1.5 h-8 ${
+                          option.id === selectedSort
+                            ? "bg-black hover:bg-gray-800 text-white"
+                            : "border-black text-black hover:bg-black hover:text-white"
+                        }`}
+                        size="sm"
+                      >
+                        <Icon className="w-3 h-3" />
+                        <span>{option.name}</span>
+                      </Button>
+                    )
+                  })}
+                </div>
               </div>
 
-              {/* Ordenar */}
-              <div className="flex flex-wrap justify-center lg:justify-end gap-2">
-                <span className="text-sm font-medium text-gray-700 flex items-center mr-3">Ordenar:</span>
-                {sortOptions.map((option) => {
-                  const Icon = sortIcons[option.id] || ArrowUpDown
+              {/* Filtro de Estado */}
+              <div className="flex flex-wrap justify-center lg:justify-start gap-2 items-center border-t pt-4 lg:border-t-0 lg:pt-0">
+                <span className="text-sm font-medium text-gray-700 flex items-center mr-3">Estado:</span>
+                {statusOptions.map((option) => {
+                  const Icon = option.id === "todos" ? Filter : Check
                   return (
                     <Button
                       key={option.id}
-                      onClick={() => setSelectedSort(option.id)}
-                      variant={option.id === selectedSort ? "default" : "outline"}
+                      onClick={() => setSelectedStatus(option.id)}
+                      variant={option.id === selectedStatus ? "default" : "outline"}
                       className={`flex items-center gap-1 text-xs md:text-sm px-3 py-1.5 h-8 ${
-                        option.id === selectedSort
+                        option.id === selectedStatus
                           ? "bg-black hover:bg-gray-800 text-white"
                           : "border-black text-black hover:bg-black hover:text-white"
                       }`}
@@ -167,11 +210,10 @@ export default function ObrasClientPage({ artworks, categories, sortOptions }: O
             </div>
 
             {/* Contador de resultados */}
-            <div className="mt-3 text-center lg:text-left">
+            <div className="mt-4 text-center lg:text-left">
               <p className="text-sm text-gray-600">
-                {filteredArtworks.length} obra{filteredArtworks.length !== 1 ? "s" : ""}
-                {selectedCategory !== "todos" &&
-                  ` en ${categories.find((c) => c.id === selectedCategory)?.name.toLowerCase()}`}
+                {filteredArtworks.length} obra{filteredArtworks.length !== 1 ? "s" : ""} encontrada
+                {filteredArtworks.length !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
@@ -182,10 +224,7 @@ export default function ObrasClientPage({ artworks, categories, sortOptions }: O
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {filteredArtworks.length === 0 ? (
               <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-lg">
-                <p className="text-lg text-gray-600">No se encontraron obras en esta categoría.</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Verifica que Supabase esté configurado correctamente o que las obras estén marcadas como destacadas.
-                </p>
+                <p className="text-lg text-gray-600">No se encontraron obras con los filtros seleccionados.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">

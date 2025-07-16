@@ -47,11 +47,11 @@ export default function NuevaObra() {
       return
     }
 
-    // Validar tamaño de archivos (5MB máximo)
-    const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+    // Validar tamaño de archivos (8MB máximo)
+    const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
     for (const image of selectedImages) {
       if (image.size > MAX_FILE_SIZE) {
-        setError(`La imagen "${image.name}" es demasiado grande. Máximo 5MB por imagen.`)
+        setError(`La imagen "${image.name}" es demasiado grande. Máximo 8MB por imagen.`)
         setIsLoading(false)
         return
       }
@@ -258,7 +258,7 @@ export default function NuevaObra() {
               <Card>
                 <CardHeader>
                   <CardTitle>Imágenes de la Obra</CardTitle>
-                  <p className="text-sm text-gray-600">Máximo 3 imágenes. Máximo 5MB por imagen.</p>
+                  <p className="text-sm text-gray-600">Máximo 3 imágenes. Máximo 8MB por imagen.</p>
                 </CardHeader>
                 <CardContent>
                   <SimpleImageUpload onImagesChange={handleImagesChange} maxImages={3} />

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, ImageIcon, CheckCircle } from "lucide-react"
+import { ArrowLeft, Save, ImageIcon, CheckCircle, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -32,6 +32,7 @@ export default function EditarObra({ params }: PageProps) {
   const [isEspatula, setIsEspatula] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string>("")
 
   useEffect(() => {
     const token = localStorage.getItem("admin-token")
@@ -64,8 +65,24 @@ export default function EditarObra({ params }: PageProps) {
     e.preventDefault()
     setIsLoading(true)
     setSuccess(false)
+    setError("")
 
     const formData = new FormData(e.target as HTMLFormElement)
+
+    // Client-side validation for new images
+    if (selectedImages.length > 0) {
+      const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
+      for (const image of selectedImages) {
+        if (image.size > MAX_FILE_SIZE) {
+          setError(`La imagen "${image.name}" es demasiado grande. Máximo 8MB.`)
+          setIsLoading(false)
+          return
+        }
+      }
+      selectedImages.forEach((image) => {
+        formData.append("images", image)
+      })
+    }
 
     if (isEspatula) {
       formData.set("subcategory", "espatula")
@@ -73,31 +90,28 @@ export default function EditarObra({ params }: PageProps) {
       formData.set("subcategory", "")
     }
 
-    // Añadir imágenes nuevas solo si el usuario seleccionó algunas
-    if (selectedImages.length > 0) {
-      selectedImages.forEach((image) => {
-        formData.append("images", image)
-      })
-    }
-
     try {
-      await updateArtwork(params.id, formData)
-      setSuccess(true)
-      setIsLoading(false)
-
-      setTimeout(() => {
-        router.push("/admin/obras")
-      }, 2000)
-    } catch (error) {
+      const result = await updateArtwork(params.id, formData)
+      if (result && result.id) {
+        setSuccess(true)
+        setTimeout(() => {
+          router.push("/admin/obras")
+        }, 2000)
+      } else {
+        throw new Error("La actualización no devolvió una confirmación.")
+      }
+    } catch (error: any) {
       console.error("Error updating artwork:", error)
-      setIsLoading(false)
+      setError(error.message || "Error desconocido al actualizar la obra.")
       setSuccess(false)
-      alert("Error al actualizar la obra. Por favor, intenta de nuevo.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleImagesChange = (files: File[]) => {
     setSelectedImages(files)
+    setError("")
   }
 
   // Crear array de imágenes actuales para mostrar
@@ -106,7 +120,7 @@ export default function EditarObra({ params }: PageProps) {
     currentImages.push(artwork.main_image_url)
   }
   if (artwork?.gallery && artwork.gallery.length > 0) {
-    artwork.gallery.forEach((img) => {
+    artwork.gallery.forEach((img: string) => {
       if (img && img.trim() !== "" && !currentImages.includes(img)) {
         currentImages.push(img)
       }
@@ -347,6 +361,7 @@ export default function EditarObra({ params }: PageProps) {
                   <CardTitle>Reemplazar Imágenes</CardTitle>
                   <p className="text-sm text-gray-600">
                     Para cambiar las imágenes, selecciona un nuevo set. Esto reemplazará todas las imágenes actuales.
+                    Máximo 8MB por imagen.
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -414,6 +429,18 @@ export default function EditarObra({ params }: PageProps) {
                 </Link>
               </div>
 
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <AlertTriangle className="w-4 h-4 text-red-600 mr-3 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800">Error</p>
+                      <p className="text-xs text-red-600">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {isLoading && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -422,7 +449,7 @@ export default function EditarObra({ params }: PageProps) {
                       <p className="text-sm font-medium text-blue-800">Actualizando obra...</p>
                       <p className="text-xs text-blue-600">
                         {selectedImages.length > 0
-                          ? "Subiendo nuevas imágenes en orden y guardando cambios"
+                          ? "Subiendo nuevas imágenes y guardando cambios"
                           : "Guardando cambios"}
                       </p>
                     </div>

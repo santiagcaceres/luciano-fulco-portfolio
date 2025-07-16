@@ -39,8 +39,8 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
     }
 
     for (const file of filesArray) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError(`La imagen "${file.name}" es demasiado grande (máx 10MB).`)
+      if (file.size > 8 * 1024 * 1024) {
+        setError(`La imagen "${file.name}" es demasiado grande (máx 8MB).`)
         return
       }
     }
@@ -98,6 +98,7 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
         <p className="text-sm font-medium text-gray-700 mb-1">
           {images.length > 0 ? "Cambiar Selección" : "Seleccionar Imágenes"}
         </p>
+        <p className="text-xs text-gray-400 mb-4">Cualquier formato • Máximo 8MB por archivo</p>
         <p className="text-xs text-gray-500">
           {images.length} de {maxImages} imágenes seleccionadas
         </p>
