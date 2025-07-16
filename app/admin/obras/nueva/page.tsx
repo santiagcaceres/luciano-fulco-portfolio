@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, CheckCircle, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Save, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { SimpleImageUpload } from "@/components/simple-image-upload"
 import { createArtwork } from "@/app/actions/artworks"
+import { SuccessPopup } from "@/components/success-popup"
 
 export default function NuevaObra() {
   const router = useRouter()
@@ -20,7 +21,7 @@ export default function NuevaObra() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [isEspatula, setIsEspatula] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [error, setError] = useState<string>("")
 
   useEffect(() => {
@@ -35,7 +36,6 @@ export default function NuevaObra() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setSuccess(false)
     setError("")
 
     console.log("🚀 Starting form submission...")
@@ -53,7 +53,7 @@ export default function NuevaObra() {
     const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
     for (const image of selectedImages) {
       if (image.size > MAX_FILE_SIZE) {
-        setError("No se pudo crear la obra, las imágenes exceden los 8mb.")
+        setError("No se creo la obra, las imagenes exceden los 8mb.")
         setIsLoading(false)
         return
       }
@@ -78,22 +78,34 @@ export default function NuevaObra() {
       // Verificar que el resultado tenga un ID válido
       if (result && (result.id || result.title)) {
         console.log("🎉 Artwork created successfully!")
-        setSuccess(true)
-        // Redirigir después de 1.5 segundos (MÁS RÁPIDO)
-        setTimeout(() => {
-          router.push("/admin/obras")
-        }, 1500)
+        setShowSuccessPopup(true)
       } else {
         console.error("❌ Invalid result from createArtwork:", result)
-        throw new Error("La obra se procesó pero no se recibió confirmación válida del servidor.")
+        throw new Error("No se creo la obra, las imagenes exceden los 8mb.")
       }
     } catch (error: any) {
       console.error("💥 Error creating artwork:", error)
-      setError(error.message || "Error desconocido al crear la obra.")
-      setSuccess(false)
+      // MENSAJE ESPECÍFICO PARA ERRORES DE TAMAÑO
+      if (
+        error.message.includes("8MB") ||
+        error.message.includes("8mb") ||
+        error.message.includes("demasiado grande")
+      ) {
+        setError("No se creo la obra, las imagenes exceden los 8mb.")
+      } else {
+        setError("No se creo la obra, las imagenes exceden los 8mb.")
+      }
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSuccessPopupClose = () => {
+    setShowSuccessPopup(false)
+    // Redirigir después de cerrar el popup
+    setTimeout(() => {
+      router.push("/admin/obras")
+    }, 300)
   }
 
   const handleImagesChange = (files: File[]) => {
@@ -117,24 +129,18 @@ export default function NuevaObra() {
     )
   }
 
-  // PANTALLA DE ÉXITO CON TICK VERDE
-  if (success) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="bg-white rounded-lg p-8 shadow-lg">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Creada con Éxito!</h2>
-            <p className="text-gray-600 mb-4">La nueva obra se ha guardado correctamente con todas sus imágenes.</p>
-            <div className="animate-pulse text-sm text-gray-500">Redirigiendo al panel de obras...</div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* SUCCESS POPUP */}
+      <SuccessPopup
+        isOpen={showSuccessPopup}
+        title="¡Obra Creada con Éxito!"
+        message="La nueva obra se ha guardado correctamente con todas sus imágenes."
+        onClose={handleSuccessPopupClose}
+        autoClose={true}
+        autoCloseDelay={2000}
+      />
+
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center py-4">
