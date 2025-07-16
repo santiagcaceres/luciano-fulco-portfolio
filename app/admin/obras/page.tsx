@@ -3,13 +3,12 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Palette, Plus, Edit, Trash2, ImageIcon, ArrowLeft } from "lucide-react"
+import { Palette, Plus, Edit, Trash2, ImageIcon, ArrowLeft, CheckCircle, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { getArtworks, deleteArtwork } from "@/app/actions/artworks"
-import { SuccessPopup } from "@/components/success-popup"
 
 export default function AdminObras() {
   const router = useRouter()
@@ -18,6 +17,10 @@ export default function AdminObras() {
   const [loading, setLoading] = useState(true)
   const [showDeletePopup, setShowDeletePopup] = useState(false)
   const [deletedArtworkTitle, setDeletedArtworkTitle] = useState("")
+  const [showCreatedPopup, setShowCreatedPopup] = useState(false)
+  const [createdArtworkTitle, setCreatedArtworkTitle] = useState("")
+  const [showUpdatedPopup, setShowUpdatedPopup] = useState(false)
+  const [updatedArtworkTitle, setUpdatedArtworkTitle] = useState("")
 
   useEffect(() => {
     const token = localStorage.getItem("admin-token")
@@ -28,6 +31,71 @@ export default function AdminObras() {
       loadArtworks()
     }
   }, [router])
+
+  // Verificar si hay mensajes de éxito pendientes
+  useEffect(() => {
+    // Verificar si se creó una obra
+    const createdData = localStorage.getItem("artwork-created")
+    if (createdData) {
+      try {
+        const { title, timestamp } = JSON.parse(createdData)
+        // Solo mostrar si es reciente (menos de 10 segundos)
+        if (Date.now() - timestamp < 10000) {
+          setCreatedArtworkTitle(title)
+          setShowCreatedPopup(true)
+        }
+        localStorage.removeItem("artwork-created")
+      } catch (error) {
+        console.error("Error parsing created artwork data:", error)
+        localStorage.removeItem("artwork-created")
+      }
+    }
+
+    // Verificar si se actualizó una obra
+    const updatedData = localStorage.getItem("artwork-updated")
+    if (updatedData) {
+      try {
+        const { title, timestamp } = JSON.parse(updatedData)
+        // Solo mostrar si es reciente (menos de 10 segundos)
+        if (Date.now() - timestamp < 10000) {
+          setUpdatedArtworkTitle(title)
+          setShowUpdatedPopup(true)
+        }
+        localStorage.removeItem("artwork-updated")
+      } catch (error) {
+        console.error("Error parsing updated artwork data:", error)
+        localStorage.removeItem("artwork-updated")
+      }
+    }
+  }, [])
+
+  // Auto-cerrar popups después de 3 segundos
+  useEffect(() => {
+    if (showCreatedPopup) {
+      const timer = setTimeout(() => {
+        setShowCreatedPopup(false)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [showCreatedPopup])
+
+  useEffect(() => {
+    if (showUpdatedPopup) {
+      const timer = setTimeout(() => {
+        setShowUpdatedPopup(false)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [showUpdatedPopup])
+
+  useEffect(() => {
+    if (showDeletePopup) {
+      const timer = setTimeout(() => {
+        setShowDeletePopup(false)
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [showDeletePopup])
 
   const loadArtworks = async () => {
     try {
@@ -56,26 +124,71 @@ export default function AdminObras() {
     }
   }
 
-  const handleDeletePopupClose = () => {
-    setShowDeletePopup(false)
-    setDeletedArtworkTitle("")
-  }
-
   if (!isAuthenticated) {
     return <div>Cargando...</div>
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
+      {/* SUCCESS POPUP PARA CREAR OBRA */}
+      {showCreatedPopup && (
+        <div className="fixed top-4 right-4 z-[9999] animate-in slide-in-from-right-full duration-300">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg max-w-sm">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-600 mr-3 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-green-800">¡Obra Creada con Éxito!</p>
+                  <p className="text-xs text-green-600 mt-1">"{createdArtworkTitle}" se ha guardado correctamente.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCreatedPopup(false)} className="text-green-400 hover:text-green-600 ml-2">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS POPUP PARA EDITAR OBRA */}
+      {showUpdatedPopup && (
+        <div className="fixed top-4 right-4 z-[9999] animate-in slide-in-from-right-full duration-300">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-lg max-w-sm">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-blue-600 mr-3 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">¡Obra Actualizada con Éxito!</p>
+                  <p className="text-xs text-blue-600 mt-1">"{updatedArtworkTitle}" se ha actualizado correctamente.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowUpdatedPopup(false)} className="text-blue-400 hover:text-blue-600 ml-2">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DELETE SUCCESS POPUP */}
-      <SuccessPopup
-        isOpen={showDeletePopup}
-        title="¡Obra Eliminada!"
-        message={`La obra "${deletedArtworkTitle}" ha sido eliminada exitosamente.`}
-        onClose={handleDeletePopupClose}
-        autoClose={true}
-        autoCloseDelay={2000}
-      />
+      {showDeletePopup && (
+        <div className="fixed top-4 right-4 z-[9999] animate-in slide-in-from-right-full duration-300">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg max-w-sm">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-red-600 mr-3 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">¡Obra Eliminada!</p>
+                  <p className="text-xs text-red-600 mt-1">"{deletedArtworkTitle}" ha sido eliminada exitosamente.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDeletePopup(false)} className="text-red-400 hover:text-red-600 ml-2">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header className="bg-white shadow-sm border-b">

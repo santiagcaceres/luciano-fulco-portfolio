@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, CheckCircle, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Save, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -20,7 +20,6 @@ export default function NuevaObra() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [isEspatula, setIsEspatula] = useState(false)
-  const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string>("")
 
   useEffect(() => {
@@ -32,20 +31,9 @@ export default function NuevaObra() {
     }
   }, [router])
 
-  // Efecto para manejar el éxito y redirección
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => {
-        router.push("/admin/obras")
-      }, 2000) // 2 segundos para ver el mensaje
-      return () => clearTimeout(timer)
-    }
-  }, [success, router])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setSuccess(false)
     setError("")
 
     console.log("🚀 Starting form submission...")
@@ -78,8 +66,19 @@ export default function NuevaObra() {
       // Verificar que el resultado tenga un ID válido
       if (result && (result.id || result.title)) {
         console.log("🎉 Artwork created successfully!")
-        setSuccess(true)
-        // La redirección se maneja en el useEffect
+
+        // Guardar información para mostrar el mensaje de éxito
+        const artworkTitle = result.title || (formData.get("title") as string)
+        localStorage.setItem(
+          "artwork-created",
+          JSON.stringify({
+            title: artworkTitle,
+            timestamp: Date.now(),
+          }),
+        )
+
+        // Redirigir inmediatamente
+        router.push("/admin/obras")
       } else {
         console.error("❌ Invalid result from createArtwork:", result)
         throw new Error("Error al crear la obra. Inténtalo de nuevo.")
@@ -103,25 +102,6 @@ export default function NuevaObra() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-gray-600">Cargando...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // PANTALLA DE ÉXITO COMPLETA
-  if (success) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="bg-white rounded-lg p-8 shadow-lg border">
-            <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">¡Obra Creada con Éxito!</h2>
-            <p className="text-gray-600 mb-6">La nueva obra se ha guardado correctamente con todas sus imágenes.</p>
-            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
-              <span>Redirigiendo al panel de obras...</span>
-            </div>
-          </div>
         </div>
       </div>
     )

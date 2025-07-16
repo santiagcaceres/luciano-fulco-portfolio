@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, ImageIcon, CheckCircle, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Save, ImageIcon, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -31,7 +31,6 @@ export default function EditarObra({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [isEspatula, setIsEspatula] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
-  const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string>("")
 
   useEffect(() => {
@@ -43,16 +42,6 @@ export default function EditarObra({ params }: PageProps) {
       loadArtwork()
     }
   }, [router])
-
-  // Efecto para limpiar el mensaje de éxito después de 3 segundos
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => {
-        setSuccess(false)
-      }, 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [success])
 
   const loadArtwork = async () => {
     try {
@@ -74,7 +63,6 @@ export default function EditarObra({ params }: PageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setSuccess(false)
     setError("")
 
     console.log("🚀 Starting update submission...")
@@ -102,12 +90,19 @@ export default function EditarObra({ params }: PageProps) {
       // Verificar que el resultado tenga un ID válido
       if (result && (result.id || result.title)) {
         console.log("🎉 Artwork updated successfully!")
-        // Recargar datos para mostrar cambios actualizados PRIMERO
-        await loadArtwork()
-        // LUEGO mostrar el mensaje de éxito con las nuevas imágenes
-        setSuccess(true)
-        // Limpiar las imágenes seleccionadas
-        setSelectedImages([])
+
+        // Guardar información para mostrar el mensaje de éxito
+        const artworkTitle = result.title || artwork.title
+        localStorage.setItem(
+          "artwork-updated",
+          JSON.stringify({
+            title: artworkTitle,
+            timestamp: Date.now(),
+          }),
+        )
+
+        // Redirigir a la lista de obras
+        router.push("/admin/obras")
       } else {
         console.error("❌ Invalid result from updateArtwork:", result)
         throw new Error("Error al actualizar la obra. Inténtalo de nuevo.")
@@ -115,7 +110,6 @@ export default function EditarObra({ params }: PageProps) {
     } catch (error: any) {
       console.error("💥 Error updating artwork:", error)
       setError(error.message || "Error al actualizar la obra. Inténtalo de nuevo.")
-      setSuccess(false)
     } finally {
       setIsLoading(false)
     }
@@ -423,21 +417,6 @@ export default function EditarObra({ params }: PageProps) {
                   </Button>
                 </Link>
               </div>
-
-              {/* MENSAJE DE ÉXITO CON TICK VERDE - APARECE DESPUÉS DE RECARGAR */}
-              {success && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 transition-opacity duration-300">
-                  <div className="flex items-center">
-                    <CheckCircle className="w-4 h-4 text-green-600 mr-3 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-green-800">¡Cambios Guardados con Éxito!</p>
-                      <p className="text-xs text-green-600">
-                        La obra se ha actualizado correctamente con las nuevas imágenes.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Mensajes de estado */}
               {error && (
