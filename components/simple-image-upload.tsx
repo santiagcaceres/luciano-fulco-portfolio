@@ -122,9 +122,9 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
                   alt={`Preview ${index + 1}`}
                   width={80}
                   height={80}
-                  className="w-20 h-20 object-cover rounded-md border"
+                  className="w-16 h-16 object-cover rounded-md border flex-shrink-0"
                 />
-                <div className="flex-grow space-y-1">
+                <div className="flex-grow min-w-0 space-y-1">
                   <p className="text-xs font-medium text-gray-800 truncate" title={image.file.name}>
                     {image.file.name}
                   </p>
@@ -132,21 +132,21 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
                   {index === 0 && (
                     <div className="flex items-center gap-1 text-xs font-semibold text-amber-600">
                       <Star className="w-3 h-3 fill-current" />
-                      <span>Imagen Principal</span>
+                      <span>Principal</span>
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
                     onClick={() => moveImage(index, "left")}
                     disabled={index === 0}
-                    className="h-8 w-8"
+                    className="h-7 w-7"
                     title="Mover a la izquierda"
                   >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft className="w-3 h-3" />
                   </Button>
                   <Button
                     type="button"
@@ -154,20 +154,20 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
                     size="icon"
                     onClick={() => moveImage(index, "right")}
                     disabled={index === images.length - 1}
-                    className="h-8 w-8"
+                    className="h-7 w-7"
                     title="Mover a la derecha"
                   >
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-3 h-3" />
                   </Button>
                   <Button
                     type="button"
                     variant="destructive"
                     size="icon"
                     onClick={() => removeImage(index)}
-                    className="h-8 w-8"
+                    className="h-7 w-7"
                     title="Eliminar imagen"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
               </div>

@@ -38,17 +38,27 @@ export default function NuevaObra() {
 
     const formData = new FormData(e.target as HTMLFormElement)
 
+    // Debug: mostrar todos los datos del formulario
+    console.log("Form data entries:")
+    for (const [key, value] of formData.entries()) {
+      console.log(`${key}:`, value)
+    }
+
     if (isEspatula) {
       formData.set("subcategory", "espatula")
     }
 
     // Añadir imágenes en su orden actual
-    selectedImages.forEach((image) => {
+    console.log("Adding images to form data:", selectedImages.length)
+    selectedImages.forEach((image, index) => {
+      console.log(`Adding image ${index + 1}:`, image.name, image.size)
       formData.append("images", image)
     })
 
     try {
+      console.log("Calling createArtwork...")
       await createArtwork(formData)
+      console.log("Artwork created successfully!")
       setSuccess(true)
 
       setTimeout(() => {
@@ -56,7 +66,9 @@ export default function NuevaObra() {
       }, 2000)
     } catch (error) {
       console.error("Error creating artwork:", error)
-      alert("Error al crear la obra. Por favor, intenta de nuevo.")
+      setIsLoading(false)
+      setSuccess(false)
+      alert(`Error al crear la obra: ${error.message || "Error desconocido"}`)
     } finally {
       setIsLoading(false)
     }
@@ -282,6 +294,12 @@ export default function NuevaObra() {
                   )}
                 </Button>
               </div>
+
+              {selectedImages.length === 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800">⚠️ Selecciona al menos una imagen para continuar</p>
+                </div>
+              )}
 
               {isLoading && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
