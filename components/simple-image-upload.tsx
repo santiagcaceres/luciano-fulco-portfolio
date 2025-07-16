@@ -1,12 +1,15 @@
 "use client"
 import { useState, useRef, useEffect } from "react"
-import { Trash2, Upload, AlertCircle, ArrowLeft, ArrowRight, Star } from "lucide-react"
+import { Trash2, Upload, AlertCircle, ArrowLeft, ArrowRight, Star, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { compressImages } from "@/lib/image-compression"
 
 interface ImageObject {
   file: File
   previewUrl: string
+  originalSize?: number
+  compressedSize?: number
 }
 
 interface SimpleImageUploadProps {
@@ -18,6 +21,7 @@ interface SimpleImageUploadProps {
 export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "" }: SimpleImageUploadProps) {
   const [images, setImages] = useState<ImageObject[]>([])
   const [error, setError] = useState<string>("")
+  const [isCompressing, setIsCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Limpiar los object URLs cuando el componente se desmonte para evitar fugas de memoria
@@ -27,7 +31,7 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
     }
   }, [images])
 
-  const handleFileSelection = (selectedFiles: FileList | null) => {
+  const handleFileSelection = async (selectedFiles: FileList | null) => {
     if (!selectedFiles) return
     setError("")
 
@@ -42,13 +46,30 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
     // Limpiar URLs viejas antes de crear nuevas
     images.forEach((image) => URL.revokeObjectURL(image.previewUrl))
 
-    const newImageObjects = filesArray.map((file) => ({
-      file,
-      previewUrl: URL.createObjectURL(file),
-    }))
+    try {
+      setIsCompressing(true)
 
-    setImages(newImageObjects)
-    onImagesChange(newImageObjects.map((img) => img.file))
+      // Comprimir imágenes si es necesario
+      console.log("🗜️ Iniciando compresión de imágenes...")
+      const compressedFiles = await compressImages(filesArray)
+
+      const newImageObjects: ImageObject[] = compressedFiles.map((file, index) => ({
+        file,
+        previewUrl: URL.createObjectURL(file),
+        originalSize: filesArray[index].size,
+        compressedSize: file.size,
+      }))
+
+      setImages(newImageObjects)
+      onImagesChange(newImageObjects.map((img) => img.file))
+
+      console.log("✅ Compresión completada")
+    } catch (error) {
+      console.error("Error durante la compresión:", error)
+      setError("Error al procesar las imágenes. Inténtalo de nuevo.")
+    } finally {
+      setIsCompressing(false)
+    }
   }
 
   const removeImage = (indexToRemove: number) => {
@@ -78,25 +99,40 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
       <input
         ref={fileInputRef}
         type="file"
-        accept="*/*"
+        accept="image/*"
         multiple
         onChange={(e) => handleFileSelection(e.target.files)}
         className="hidden"
+        disabled={isCompressing}
       />
 
       {/* Área de Carga */}
       <div
-        className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-gray-400 hover:bg-gray-50"
-        onClick={() => fileInputRef.current?.click()}
+        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+          isCompressing
+            ? "border-blue-300 bg-blue-50 cursor-not-allowed"
+            : "cursor-pointer hover:border-gray-400 hover:bg-gray-50"
+        }`}
+        onClick={() => !isCompressing && fileInputRef.current?.click()}
       >
-        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-        <p className="text-sm font-medium text-gray-700 mb-1">
-          {images.length > 0 ? "Cambiar Selección" : "Seleccionar Imágenes"}
-        </p>
-        <p className="text-xs text-gray-400 mb-4">Cualquier formato • Cualquier tamaño</p>
-        <p className="text-xs text-gray-500">
-          {images.length} de {maxImages} imágenes seleccionadas
-        </p>
+        {isCompressing ? (
+          <>
+            <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-2 animate-spin" />
+            <p className="text-sm font-medium text-blue-700 mb-1">Optimizando imágenes...</p>
+            <p className="text-xs text-blue-600">Comprimiendo para mejorar la velocidad de carga</p>
+          </>
+        ) : (
+          <>
+            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-700 mb-1">
+              {images.length > 0 ? "Cambiar Selección" : "Seleccionar Imágenes"}
+            </p>
+            <p className="text-xs text-gray-400 mb-4">Cualquier formato • Optimización automática</p>
+            <p className="text-xs text-gray-500">
+              {images.length} de {maxImages} imágenes seleccionadas
+            </p>
+          </>
+        )}
       </div>
 
       {error && (
@@ -124,7 +160,14 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
                   <p className="text-xs font-medium text-gray-800 truncate" title={image.file.name}>
                     {image.file.name}
                   </p>
-                  <p className="text-xs text-gray-500">{`${(image.file.size / 1024 / 1024).toFixed(2)} MB`}</p>
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <span>{`${(image.file.size / 1024 / 1024).toFixed(2)} MB`}</span>
+                    {image.originalSize && image.originalSize !== image.compressedSize && (
+                      <span className="text-green-600">
+                        (optimizada desde {(image.originalSize / 1024 / 1024).toFixed(2)} MB)
+                      </span>
+                    )}
+                  </div>
                   {index === 0 && (
                     <div className="flex items-center gap-1 text-xs font-semibold text-amber-600">
                       <Star className="w-3 h-3 fill-current" />
@@ -138,7 +181,7 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
                     variant="outline"
                     size="icon"
                     onClick={() => moveImage(index, "left")}
-                    disabled={index === 0}
+                    disabled={index === 0 || isCompressing}
                     className="h-7 w-7"
                     title="Mover a la izquierda"
                   >
@@ -149,7 +192,7 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
                     variant="outline"
                     size="icon"
                     onClick={() => moveImage(index, "right")}
-                    disabled={index === images.length - 1}
+                    disabled={index === images.length - 1 || isCompressing}
                     className="h-7 w-7"
                     title="Mover a la derecha"
                   >
@@ -160,6 +203,7 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
                     variant="destructive"
                     size="icon"
                     onClick={() => removeImage(index)}
+                    disabled={isCompressing}
                     className="h-7 w-7"
                     title="Eliminar imagen"
                   >
@@ -169,6 +213,19 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Información sobre optimización */}
+      {images.length > 0 && (
+        <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+          <p className="font-medium mb-1">ℹ️ Optimización automática:</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>Las imágenes grandes se comprimen automáticamente</li>
+            <li>Se mantiene alta calidad visual</li>
+            <li>Mejora la velocidad de carga del sitio</li>
+            <li>Tamaño total: {(images.reduce((acc, img) => acc + img.file.size, 0) / 1024 / 1024).toFixed(2)} MB</li>
+          </ul>
         </div>
       )}
     </div>

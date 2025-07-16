@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Save, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -51,15 +51,15 @@ export default function NuevaObra() {
       formData.set("subcategory", "espatula")
     }
 
-    // Añadir imágenes en su orden actual
-    console.log("📎 Adding images to form data:", selectedImages.length)
+    // Añadir imágenes en su orden actual (ya están optimizadas)
+    console.log("📎 Adding optimized images to form data:", selectedImages.length)
     selectedImages.forEach((image, index) => {
-      console.log(`Adding image ${index + 1}:`, image.name, `${(image.size / 1024 / 1024).toFixed(2)}MB`)
+      console.log(`Adding optimized image ${index + 1}:`, image.name, `${(image.size / 1024 / 1024).toFixed(2)}MB`)
       formData.append("images", image)
     })
 
     try {
-      console.log("📞 Calling createArtwork...")
+      console.log("📞 Calling createArtwork with optimized images...")
       const result = await createArtwork(formData)
       console.log("✅ createArtwork result:", result)
 
@@ -243,7 +243,9 @@ export default function NuevaObra() {
               <Card>
                 <CardHeader>
                   <CardTitle>Imágenes de la Obra</CardTitle>
-                  <p className="text-sm text-gray-600">Máximo 3 imágenes. Cualquier formato y tamaño.</p>
+                  <p className="text-sm text-gray-600">
+                    Máximo 3 imágenes. Optimización automática para mejor rendimiento.
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <SimpleImageUpload onImagesChange={handleImagesChange} maxImages={3} />
@@ -284,7 +286,7 @@ export default function NuevaObra() {
                 >
                   {isLoading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Guardando...
                     </>
                   ) : (
@@ -318,9 +320,9 @@ export default function NuevaObra() {
               {isLoading && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                    <Loader2 className="w-4 h-4 border-b-2 border-blue-600 mr-3 animate-spin" />
                     <div>
-                      <p className="text-sm font-medium text-blue-800">Subiendo imágenes...</p>
+                      <p className="text-sm font-medium text-blue-800">Subiendo imágenes optimizadas...</p>
                       <p className="text-xs text-blue-600">
                         Procesando {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""}. Esto puede
                         tomar unos momentos.
@@ -331,13 +333,14 @@ export default function NuevaObra() {
               )}
 
               {selectedImages.length > 0 && !isLoading && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <p className="text-sm text-gray-700">
-                    {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""} lista
-                    {selectedImages.length > 1 ? "s" : ""} para subir
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-700">
+                    ✅ {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""} optimizada
+                    {selectedImages.length > 1 ? "s" : ""} lista{selectedImages.length > 1 ? "s" : ""} para subir
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Tamaño total: {(selectedImages.reduce((acc, img) => acc + img.size, 0) / 1024 / 1024).toFixed(2)}MB
+                  <p className="text-xs text-green-600 mt-1">
+                    Tamaño total optimizado:{" "}
+                    {(selectedImages.reduce((acc, img) => acc + img.size, 0) / 1024 / 1024).toFixed(2)}MB
                   </p>
                 </div>
               )}
