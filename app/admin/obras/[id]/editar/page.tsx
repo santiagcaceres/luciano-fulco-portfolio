@@ -7,9 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, ImageIcon } from "lucide-react"
+import { ArrowLeft, Save, ImageIcon, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -30,6 +29,7 @@ export default function EditarObra({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [isEspatula, setIsEspatula] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [success, setSuccess] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem("admin-token")
@@ -46,7 +46,6 @@ export default function EditarObra({ params }: PageProps) {
       const data = await getArtworkById(params.id)
       if (data) {
         setArtwork(data)
-        // Establecer el estado del checkbox basado en la subcategoría
         setIsEspatula(data.subcategory === "espatula")
       } else {
         router.push("/admin/obras")
@@ -62,6 +61,7 @@ export default function EditarObra({ params }: PageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setSuccess(false)
 
     const formData = new FormData(e.target as HTMLFormElement)
 
@@ -73,19 +73,26 @@ export default function EditarObra({ params }: PageProps) {
     }
 
     // Agregar nuevas imágenes si se seleccionaron
-    console.log("Submitting with images:", selectedImages.length)
     selectedImages.forEach((image, index) => {
-      console.log(`Adding image ${index + 1}:`, image.name, image.size)
       formData.append("images", image)
     })
 
     try {
       await updateArtwork(params.id, formData)
-      // La función updateArtwork ya redirige automáticamente
+
+      // Si llegamos aquí, la obra se actualizó exitosamente
+      setSuccess(true)
+      setIsLoading(false)
+
+      // Mostrar mensaje de éxito por 2 segundos antes de redirigir
+      setTimeout(() => {
+        router.push("/admin/obras")
+      }, 2000)
     } catch (error) {
       console.error("Error updating artwork:", error)
-      alert("Error al actualizar la obra. Por favor, intenta de nuevo.")
       setIsLoading(false)
+      setSuccess(false)
+      alert("Error al actualizar la obra. Por favor, intenta de nuevo.")
     }
   }
 
@@ -94,7 +101,7 @@ export default function EditarObra({ params }: PageProps) {
     setSelectedImages(files)
   }
 
-  // Crear array de imágenes actuales para mostrar (mejorado)
+  // Crear array de imágenes actuales para mostrar
   const currentImages = []
   if (artwork?.main_image_url && artwork.main_image_url.trim() !== "") {
     currentImages.push(artwork.main_image_url)
@@ -106,8 +113,6 @@ export default function EditarObra({ params }: PageProps) {
       }
     })
   }
-
-  console.log("Current images for editing:", currentImages)
 
   if (!isAuthenticated || loading) {
     return (
@@ -133,6 +138,22 @@ export default function EditarObra({ params }: PageProps) {
     )
   }
 
+  // Pantalla de éxito
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-white rounded-lg p-8 shadow-lg">
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Actualizada!</h2>
+            <p className="text-gray-600 mb-4">Los cambios se han guardado exitosamente.</p>
+            <div className="animate-pulse text-sm text-gray-500">Redirigiendo al panel de obras...</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -144,6 +165,7 @@ export default function EditarObra({ params }: PageProps) {
                 variant="outline"
                 size="sm"
                 className="border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white bg-transparent"
+                disabled={isLoading}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Volver a Obras
@@ -173,34 +195,37 @@ export default function EditarObra({ params }: PageProps) {
                       defaultValue={artwork.title}
                       placeholder="Ej: Paisaje Urbano"
                       required
+                      disabled={isLoading}
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="category">Categoría *</Label>
-                      <Select name="category" defaultValue={artwork.category} required>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar categoría" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="acrilicos">Acrílicos</SelectItem>
-                          <SelectItem value="oleos">Óleos</SelectItem>
-                          <SelectItem value="oleo-pastel">Óleo Pastel</SelectItem>
-                          <SelectItem value="acuarelas">Acuarelas</SelectItem>
-                          <SelectItem value="dibujos">Dibujos</SelectItem>
-                          <SelectItem value="otros">Otros</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <select
+                        name="category"
+                        defaultValue={artwork.category}
+                        required
+                        disabled={isLoading}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="">Seleccionar categoría</option>
+                        <option value="acrilicos">Acrílicos</option>
+                        <option value="oleos">Óleos</option>
+                        <option value="oleo-pastel">Óleo Pastel</option>
+                        <option value="acuarelas">Acuarelas</option>
+                        <option value="dibujos">Dibujos</option>
+                        <option value="otros">Otros</option>
+                      </select>
                     </div>
 
                     <div className="flex items-end">
-                      {/* Checkbox para Espátula */}
                       <div className="flex items-center space-x-2 pb-2">
                         <Checkbox
                           id="espatula"
                           checked={isEspatula}
                           onCheckedChange={(checked) => setIsEspatula(checked as boolean)}
+                          disabled={isLoading}
                         />
                         <Label htmlFor="espatula" className="text-sm font-medium">
                           Técnica de Espátula
@@ -218,6 +243,7 @@ export default function EditarObra({ params }: PageProps) {
                       defaultValue={artwork.price}
                       placeholder="0"
                       required
+                      disabled={isLoading}
                     />
                   </div>
 
@@ -229,6 +255,7 @@ export default function EditarObra({ params }: PageProps) {
                       defaultValue={artwork.description}
                       placeholder="Ej: Acrílico sobre lienzo, 40x60cm"
                       required
+                      disabled={isLoading}
                     />
                   </div>
 
@@ -240,6 +267,7 @@ export default function EditarObra({ params }: PageProps) {
                       defaultValue={artwork.detailed_description || ""}
                       placeholder="Describe la obra, su inspiración, técnica utilizada..."
                       rows={4}
+                      disabled={isLoading}
                     />
                   </div>
                 </CardContent>
@@ -260,6 +288,7 @@ export default function EditarObra({ params }: PageProps) {
                         defaultValue={artwork.year}
                         min="1900"
                         max={new Date().getFullYear()}
+                        disabled={isLoading}
                       />
                     </div>
 
@@ -270,6 +299,7 @@ export default function EditarObra({ params }: PageProps) {
                         name="dimensions"
                         defaultValue={artwork.dimensions}
                         placeholder="Ej: 40 x 60 cm"
+                        disabled={isLoading}
                       />
                     </div>
                   </div>
@@ -281,6 +311,7 @@ export default function EditarObra({ params }: PageProps) {
                       name="technique"
                       defaultValue={artwork.technique}
                       placeholder="Ej: Acrílico sobre lienzo"
+                      disabled={isLoading}
                     />
                   </div>
                 </CardContent>
@@ -326,24 +357,23 @@ export default function EditarObra({ params }: PageProps) {
                 <CardContent className="space-y-4">
                   <div>
                     <Label htmlFor="status">Estado</Label>
-                    <Select name="status" defaultValue={artwork.status}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Disponible">Disponible</SelectItem>
-                        <SelectItem value="Vendida">Vendida</SelectItem>
-                        <SelectItem value="Reservado">Reservado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      name="status"
+                      defaultValue={artwork.status}
+                      disabled={isLoading}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="Disponible">Disponible</option>
+                      <option value="Vendida">Vendida</option>
+                      <option value="Reservado">Reservado</option>
+                    </select>
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="featured" name="featured" defaultChecked={artwork.featured} />
+                    <Checkbox id="featured" name="featured" defaultChecked={artwork.featured} disabled={isLoading} />
                     <Label htmlFor="featured">Obra Destacada</Label>
                   </div>
 
-                  {/* Mostrar estado actual de espátula */}
                   {isEspatula && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-700">✅ Técnica de espátula activada</p>
@@ -352,11 +382,20 @@ export default function EditarObra({ params }: PageProps) {
                 </CardContent>
               </Card>
 
-              {/* Botones de Acción - NEGROS */}
+              {/* Botones de Acción */}
               <div className="flex flex-col gap-3">
                 <Button type="submit" className="w-full bg-gray-900 hover:bg-gray-800" disabled={isLoading}>
-                  <Save className="w-4 h-4 mr-2" />
-                  {isLoading ? "Guardando..." : "Guardar Cambios"}
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Guardar Cambios
+                    </>
+                  )}
                 </Button>
 
                 <Link href={`/obra/${artwork.id}`} target="_blank">
@@ -364,12 +403,30 @@ export default function EditarObra({ params }: PageProps) {
                     type="button"
                     variant="outline"
                     className="w-full border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white bg-transparent"
+                    disabled={isLoading}
                   >
                     <ImageIcon className="w-4 h-4 mr-2" />
                     Vista Previa
                   </Button>
                 </Link>
               </div>
+
+              {/* Indicador de progreso cuando está guardando */}
+              {isLoading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Actualizando obra...</p>
+                      <p className="text-xs text-blue-600">
+                        {selectedImages.length > 0
+                          ? "Subiendo nuevas imágenes y guardando cambios"
+                          : "Guardando cambios"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </form>
