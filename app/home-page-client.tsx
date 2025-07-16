@@ -6,6 +6,7 @@ import { Mail, Menu, X, ChevronLeft, ChevronRight, MessageCircle } from "lucide-
 import Image from "next/image"
 import Link from "next/link"
 import { useState, useEffect, useMemo } from "react"
+import { trackContactClick, trackCategoryFilter } from "@/lib/gtag"
 
 interface HomePageClientProps {
   featuredArtworks: any[]
@@ -71,6 +72,17 @@ export default function HomePageClient({ featuredArtworks }: HomePageClientProps
 
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % filteredArtworks.length)
   const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + filteredArtworks.length) % filteredArtworks.length)
+
+  // Función para manejar cambio de categoría con tracking
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId)
+    trackCategoryFilter(categoryId)
+  }
+
+  // Función para manejar clicks de contacto con tracking
+  const handleContactClick = (method: "email" | "whatsapp", artworkTitle?: string) => {
+    trackContactClick(method, artworkTitle)
+  }
 
   return (
     <div className="min-h-screen relative">
@@ -245,7 +257,7 @@ export default function HomePageClient({ featuredArtworks }: HomePageClientProps
                   {categories.map((category) => (
                     <button
                       key={category.id}
-                      onClick={() => setSelectedCategory(category.id)}
+                      onClick={() => handleCategoryChange(category.id)}
                       className={`px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap min-w-[80px] ${
                         category.id === selectedCategory
                           ? "bg-black text-white shadow-lg"
@@ -314,6 +326,7 @@ export default function HomePageClient({ featuredArtworks }: HomePageClientProps
                                   artwork.title,
                                 )}'.%20Quisiera%20recibir%20más%20información.`}
                                 className="flex-1 sm:flex-none"
+                                onClick={() => handleContactClick("email", artwork.title)}
                               >
                                 <Button
                                   variant="outline"
@@ -331,6 +344,7 @@ export default function HomePageClient({ featuredArtworks }: HomePageClientProps
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex-1 sm:flex-none"
+                                onClick={() => handleContactClick("whatsapp", artwork.title)}
                               >
                                 <Button
                                   variant="outline"
@@ -586,13 +600,18 @@ export default function HomePageClient({ featuredArtworks }: HomePageClientProps
               menos de 24 horas.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <a href="mailto:luciano.fulco51@hotmail.com">
+              <a href="mailto:luciano.fulco51@hotmail.com" onClick={() => handleContactClick("email")}>
                 <Button size="lg" className="bg-gray-900 text-white hover:bg-gray-800 text-sm md:text-base">
                   <Mail className="w-4 h-4 md:w-5 md:h-5 mr-2" />
                   luciano.fulco51@hotmail.com
                 </Button>
               </a>
-              <a href="https://wa.me/59898059079" target="_blank" rel="noopener noreferrer">
+              <a
+                href="https://wa.me/59898059079"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => handleContactClick("whatsapp")}
+              >
                 <Button
                   size="lg"
                   variant="outline"
