@@ -44,34 +44,19 @@ export default function NuevaObra() {
 
     // Validaciones del lado del cliente - MEJORADAS
     if (selectedImages.length === 0) {
-      setError("Debes seleccionar al menos una imagen")
+      setError("Debes seleccionar al menos una imagen.")
       setIsLoading(false)
       return
     }
 
-    // Validar tamaño de archivos (8MB máximo) - VALIDACIÓN MEJORADA
+    // Validar tamaño de archivos (8MB máximo) - MENSAJE ESPECÍFICO
     const MAX_FILE_SIZE = 8 * 1024 * 1024 // 8MB
     for (const image of selectedImages) {
       if (image.size > MAX_FILE_SIZE) {
-        const sizeMB = (image.size / 1024 / 1024).toFixed(2)
-        setError(
-          `La imagen "${image.name}" es demasiado grande (${sizeMB}MB). El tamaño máximo permitido es 8MB por imagen.`,
-        )
+        setError("No se pudo crear la obra, las imágenes exceden los 8mb.")
         setIsLoading(false)
         return
       }
-    }
-
-    // Validar tamaño total
-    const totalSize = selectedImages.reduce((acc, img) => acc + img.size, 0)
-    const maxTotalSize = 3 * 8 * 1024 * 1024 // 24MB total máximo
-    if (totalSize > maxTotalSize) {
-      const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2)
-      setError(
-        `El tamaño total de las imágenes (${totalSizeMB}MB) excede el límite de 24MB. Reduce el tamaño o número de imágenes.`,
-      )
-      setIsLoading(false)
-      return
     }
 
     if (isEspatula) {
@@ -94,29 +79,17 @@ export default function NuevaObra() {
       if (result && (result.id || result.title)) {
         console.log("🎉 Artwork created successfully!")
         setSuccess(true)
-        // Redirigir después de 2 segundos
+        // Redirigir después de 1.5 segundos (MÁS RÁPIDO)
         setTimeout(() => {
           router.push("/admin/obras")
-        }, 2000)
+        }, 1500)
       } else {
         console.error("❌ Invalid result from createArtwork:", result)
-        throw new Error("La obra se procesó pero no se recibió confirmación válida del servidor")
+        throw new Error("La obra se procesó pero no se recibió confirmación válida del servidor.")
       }
     } catch (error: any) {
       console.error("💥 Error creating artwork:", error)
-
-      // Mensajes de error más específicos
-      let errorMessage = error.message || "Error desconocido al crear la obra"
-
-      if (errorMessage.includes("demasiado grande")) {
-        errorMessage = "Una o más imágenes exceden el tamaño máximo permitido de 8MB por imagen"
-      } else if (errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
-        errorMessage = "La subida de imágenes tardó demasiado. Intenta con imágenes más pequeñas"
-      } else if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
-        errorMessage = "Error de conexión. Verifica tu internet e intenta nuevamente"
-      }
-
-      setError(errorMessage)
+      setError(error.message || "Error desconocido al crear la obra.")
       setSuccess(false)
     } finally {
       setIsLoading(false)
@@ -131,8 +104,7 @@ export default function NuevaObra() {
   // Calcular si las imágenes seleccionadas son válidas
   const hasValidImages = selectedImages.length > 0
   const hasOversizedImages = selectedImages.some((img) => img.size > 8 * 1024 * 1024)
-  const totalSize = selectedImages.reduce((acc, img) => acc + img.size, 0)
-  const isValidSelection = hasValidImages && !hasOversizedImages && totalSize <= 3 * 8 * 1024 * 1024
+  const isValidSelection = hasValidImages && !hasOversizedImages
 
   if (!isAuthenticated) {
     return (
@@ -145,14 +117,15 @@ export default function NuevaObra() {
     )
   }
 
+  // PANTALLA DE ÉXITO CON TICK VERDE
   if (success) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="bg-white rounded-lg p-8 shadow-lg">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Creada Exitosamente!</h2>
-            <p className="text-gray-600 mb-4">La obra se ha guardado correctamente con todas sus imágenes.</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Creada con Éxito!</h2>
+            <p className="text-gray-600 mb-4">La nueva obra se ha guardado correctamente con todas sus imágenes.</p>
             <div className="animate-pulse text-sm text-gray-500">Redirigiendo al panel de obras...</div>
           </div>
         </div>
@@ -365,12 +338,6 @@ export default function NuevaObra() {
               {selectedImages.length === 0 && !error && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-sm text-yellow-800">⚠️ Selecciona al menos una imagen para continuar</p>
-                </div>
-              )}
-
-              {hasOversizedImages && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-sm text-red-800">❌ Una o más imágenes exceden el tamaño máximo de 8MB</p>
                 </div>
               )}
 
