@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react"
+import { X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ImageModalProps {
@@ -15,7 +15,6 @@ interface ImageModalProps {
 
 export function ImageModal({ isOpen, onClose, images, currentIndex, title }: ImageModalProps) {
   const [activeIndex, setActiveIndex] = useState(currentIndex)
-  const [isZoomed, setIsZoomed] = useState(false)
 
   useEffect(() => {
     setActiveIndex(currentIndex)
@@ -56,16 +55,10 @@ export function ImageModal({ isOpen, onClose, images, currentIndex, title }: Ima
 
   const goToNext = () => {
     setActiveIndex((prev) => (prev + 1) % images.length)
-    setIsZoomed(false)
   }
 
   const goToPrevious = () => {
     setActiveIndex((prev) => (prev - 1 + images.length) % images.length)
-    setIsZoomed(false)
-  }
-
-  const toggleZoom = () => {
-    setIsZoomed(!isZoomed)
   }
 
   if (!isOpen) return null
@@ -82,9 +75,6 @@ export function ImageModal({ isOpen, onClose, images, currentIndex, title }: Ima
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={toggleZoom} className="text-white hover:bg-white/20">
-              {isZoomed ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
-            </Button>
             <Button variant="ghost" size="sm" onClick={onClose} className="text-white hover:bg-white/20">
               <X className="w-5 h-5" />
             </Button>
@@ -94,24 +84,13 @@ export function ImageModal({ isOpen, onClose, images, currentIndex, title }: Ima
 
       {/* Imagen principal */}
       <div className="absolute inset-0 flex items-center justify-center p-4 pt-20 pb-16">
-        <div
-          className={`relative transition-all duration-300 ${
-            isZoomed
-              ? "w-full h-full overflow-auto cursor-grab active:cursor-grabbing"
-              : "max-w-full max-h-full cursor-zoom-in"
-          }`}
-          onClick={!isZoomed ? toggleZoom : undefined}
-        >
+        <div className="relative max-w-full max-h-full">
           <Image
             src={images[activeIndex] || "/placeholder.svg"}
             alt={`${title} - Imagen ${activeIndex + 1}`}
             width={1200}
             height={800}
-            className={`transition-all duration-300 ${
-              isZoomed
-                ? "w-auto h-auto min-w-full min-h-full object-contain"
-                : "w-auto h-auto max-w-full max-h-full object-contain"
-            }`}
+            className="w-auto h-auto max-w-full max-h-full object-contain"
             priority
             quality={100}
             onError={(e) => {
@@ -149,10 +128,7 @@ export function ImageModal({ isOpen, onClose, images, currentIndex, title }: Ima
             {images.map((image, index) => (
               <button
                 key={`modal-thumb-${index}`}
-                onClick={() => {
-                  setActiveIndex(index)
-                  setIsZoomed(false)
-                }}
+                onClick={() => setActiveIndex(index)}
                 className={`relative flex-shrink-0 w-16 h-12 rounded border-2 transition-all overflow-hidden ${
                   index === activeIndex ? "border-white ring-2 ring-white/50" : "border-white/30 hover:border-white/60"
                 }`}
@@ -175,7 +151,7 @@ export function ImageModal({ isOpen, onClose, images, currentIndex, title }: Ima
 
       {/* Instrucciones */}
       <div className="absolute bottom-4 left-4 text-white/70 text-xs">
-        <p>ESC para cerrar • ← → para navegar • Click para ampliar</p>
+        <p>ESC para cerrar • ← → para navegar</p>
       </div>
     </div>
   )

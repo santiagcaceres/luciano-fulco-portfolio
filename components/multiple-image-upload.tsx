@@ -40,14 +40,9 @@ export function MultipleImageUpload({
     setError("")
 
     const validFiles = Array.from(files).filter((file) => {
-      // Validar tipo de archivo
-      if (!file.type.startsWith("image/")) {
-        setError("Solo se permiten archivos de imagen (JPG, PNG, WebP)")
-        return false
-      }
       // Validar tamaño (10MB máximo)
       if (file.size > 10 * 1024 * 1024) {
-        setError("Las imágenes deben ser menores a 10MB")
+        setError("Los archivos deben ser menores a 10MB")
         return false
       }
       return true
@@ -58,7 +53,7 @@ export function MultipleImageUpload({
     }
 
     if (validFiles.length > maxImages) {
-      setError(`Máximo ${maxImages} imágenes permitidas`)
+      setError(`Máximo ${maxImages} archivos permitidos`)
       return
     }
 
@@ -82,7 +77,7 @@ export function MultipleImageUpload({
       console.log("New files selected:", validFiles.length)
     } catch (err) {
       console.error("Error processing files:", err)
-      setError("Error al procesar las imágenes")
+      setError("Error al procesar los archivos")
     }
   }
 
@@ -130,7 +125,7 @@ export function MultipleImageUpload({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Input file oculto */}
-      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} multiple className="hidden" />
+      <input ref={fileInputRef} type="file" accept="*/*" onChange={handleFileChange} multiple className="hidden" />
 
       {/* Mostrar error si existe */}
       {error && (
@@ -196,7 +191,7 @@ export function MultipleImageUpload({
               <p className="text-xs text-gray-500 mb-2">
                 {allowEdit ? "Reemplazar todas las imágenes" : `${previews.length} de ${maxImages} imágenes`}
               </p>
-              <p className="text-xs text-gray-400 mb-4">JPEG, PNG, WebP • Máximo 10MB por imagen</p>
+              <p className="text-xs text-gray-400 mb-4">Cualquier formato • Máximo 10MB por archivo</p>
 
               {/* Botón para seleccionar archivos - NEGRO */}
               <Button
@@ -221,9 +216,9 @@ export function MultipleImageUpload({
         </p>
         <ul className="list-disc list-inside space-y-1 mt-1">
           <li>La primera imagen será la imagen principal de la obra</li>
-          <li>Máximo {maxImages} imágenes por obra</li>
-          <li>Formatos soportados: JPG, PNG, WebP</li>
-          <li>Tamaño máximo: 10MB por imagen</li>
+          <li>Máximo {maxImages} archivos por obra</li>
+          <li>Cualquier formato de archivo soportado</li>
+          <li>Tamaño máximo: 10MB por archivo</li>
         </ul>
       </div>
     </div>

@@ -11,7 +11,7 @@ import { ArrowLeft, Save, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { MultipleImageUpload } from "@/components/multiple-image-upload"
+import { SortableImageUpload } from "@/components/sortable-image-upload"
 import { createArtwork } from "@/app/actions/artworks"
 
 export default function NuevaObra() {
@@ -19,6 +19,7 @@ export default function NuevaObra() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [imageOrder, setImageOrder] = useState<number[]>([])
   const [isEspatula, setIsEspatula] = useState(false)
   const [success, setSuccess] = useState(false)
 
@@ -43,16 +44,23 @@ export default function NuevaObra() {
       formData.set("subcategory", "espatula")
     }
 
-    // Agregar todas las imágenes
-    selectedImages.forEach((image) => {
+    // Agregar imágenes en el orden correcto
+    const orderedImages = imageOrder.map((index) => selectedImages[index]).filter(Boolean)
+    orderedImages.forEach((image) => {
       formData.append("images", image)
     })
+
+    // Si no hay orden específico, usar el orden original
+    if (orderedImages.length === 0) {
+      selectedImages.forEach((image) => {
+        formData.append("images", image)
+      })
+    }
 
     try {
       await createArtwork(formData)
       setSuccess(true)
 
-      // Redirect después de mostrar éxito
       setTimeout(() => {
         router.push("/admin/obras")
       }, 2000)
@@ -64,9 +72,10 @@ export default function NuevaObra() {
     }
   }
 
-  const handleImagesSelect = (files: File[]) => {
-    console.log("Imágenes seleccionadas:", files.length)
+  const handleImagesSelect = (files: File[], order: number[]) => {
+    console.log("Imágenes seleccionadas:", files.length, "Orden:", order)
     setSelectedImages(files)
+    setImageOrder(order)
   }
 
   if (!isAuthenticated) {
@@ -80,7 +89,6 @@ export default function NuevaObra() {
     )
   }
 
-  // Pantalla de éxito
   if (success) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -88,7 +96,9 @@ export default function NuevaObra() {
           <div className="bg-white rounded-lg p-8 shadow-lg">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Creada!</h2>
-            <p className="text-gray-600 mb-4">La obra se ha guardado exitosamente.</p>
+            <p className="text-gray-600 mb-4">
+              La obra se ha guardado exitosamente con el orden de imágenes seleccionado.
+            </p>
             <div className="animate-pulse text-sm text-gray-500">Redirigiendo al panel de obras...</div>
           </div>
         </div>
@@ -232,15 +242,15 @@ export default function NuevaObra() {
               <Card>
                 <CardHeader>
                   <CardTitle>Imágenes de la Obra</CardTitle>
-                  <p className="text-sm text-gray-600">Máximo 3 imágenes. La primera será la imagen principal.</p>
+                  <p className="text-sm text-gray-600">Máximo 3 imágenes. Arrastra para reordenar.</p>
                 </CardHeader>
                 <CardContent>
-                  <MultipleImageUpload onImagesSelect={handleImagesSelect} maxImages={3} />
+                  <SortableImageUpload onImagesSelect={handleImagesSelect} maxImages={3} />
                   {selectedImages.length > 0 && (
                     <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                       <p className="text-sm text-green-700">
                         ✅ {selectedImages.length} imagen{selectedImages.length !== 1 ? "es" : ""} seleccionada
-                        {selectedImages.length !== 1 ? "s" : ""}
+                        {selectedImages.length !== 1 ? "s" : ""} en orden
                       </p>
                     </div>
                   )}
@@ -295,7 +305,7 @@ export default function NuevaObra() {
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
                     <div>
                       <p className="text-sm font-medium text-blue-800">Guardando obra...</p>
-                      <p className="text-xs text-blue-600">Subiendo imágenes y creando registro</p>
+                      <p className="text-xs text-blue-600">Subiendo imágenes en orden y creando registro</p>
                     </div>
                   </div>
                 </div>

@@ -12,7 +12,7 @@ import { ArrowLeft, Save, ImageIcon, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { MultipleImageUpload } from "@/components/multiple-image-upload"
+import { SortableImageUpload } from "@/components/sortable-image-upload"
 import { getArtworkById, updateArtwork } from "@/app/actions/artworks"
 
 interface PageProps {
@@ -29,6 +29,7 @@ export default function EditarObra({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [isEspatula, setIsEspatula] = useState(false)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [imageOrder, setImageOrder] = useState<number[]>([])
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
@@ -65,26 +66,27 @@ export default function EditarObra({ params }: PageProps) {
 
     const formData = new FormData(e.target as HTMLFormElement)
 
-    // Agregar subcategoría si está marcada
     if (isEspatula) {
       formData.set("subcategory", "espatula")
     } else {
       formData.set("subcategory", "")
     }
 
-    // Agregar nuevas imágenes si se seleccionaron
-    selectedImages.forEach((image, index) => {
-      formData.append("images", image)
-    })
+    // Agregar imágenes en el orden correcto si se seleccionaron nuevas
+    if (selectedImages.length > 0) {
+      const orderedImages = imageOrder.map((index) => selectedImages[index]).filter(Boolean)
+      const imagesToUse = orderedImages.length > 0 ? orderedImages : selectedImages
+
+      imagesToUse.forEach((image) => {
+        formData.append("images", image)
+      })
+    }
 
     try {
       await updateArtwork(params.id, formData)
-
-      // Si llegamos aquí, la obra se actualizó exitosamente
       setSuccess(true)
       setIsLoading(false)
 
-      // Mostrar mensaje de éxito por 2 segundos antes de redirigir
       setTimeout(() => {
         router.push("/admin/obras")
       }, 2000)
@@ -96,9 +98,10 @@ export default function EditarObra({ params }: PageProps) {
     }
   }
 
-  const handleImagesSelect = (files: File[]) => {
-    console.log("Nuevas imágenes seleccionadas:", files.length)
+  const handleImagesSelect = (files: File[], order: number[]) => {
+    console.log("Nuevas imágenes seleccionadas:", files.length, "Orden:", order)
     setSelectedImages(files)
+    setImageOrder(order)
   }
 
   // Crear array de imágenes actuales para mostrar
@@ -138,7 +141,6 @@ export default function EditarObra({ params }: PageProps) {
     )
   }
 
-  // Pantalla de éxito
   if (success) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -146,7 +148,9 @@ export default function EditarObra({ params }: PageProps) {
           <div className="bg-white rounded-lg p-8 shadow-lg">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Obra Actualizada!</h2>
-            <p className="text-gray-600 mb-4">Los cambios se han guardado exitosamente.</p>
+            <p className="text-gray-600 mb-4">
+              Los cambios se han guardado exitosamente con el nuevo orden de imágenes.
+            </p>
             <div className="animate-pulse text-sm text-gray-500">Redirigiendo al panel de obras...</div>
           </div>
         </div>
@@ -156,7 +160,6 @@ export default function EditarObra({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center py-4">
@@ -176,11 +179,9 @@ export default function EditarObra({ params }: PageProps) {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Información Principal */}
             <div className="lg:col-span-2 space-y-6">
               <Card>
                 <CardHeader>
@@ -318,20 +319,18 @@ export default function EditarObra({ params }: PageProps) {
               </Card>
             </div>
 
-            {/* Sidebar */}
             <div className="space-y-6">
-              {/* Gestión de Imágenes */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Imágenes de la Obra</CardTitle>
+                  <CardTitle>Gestión de Imágenes</CardTitle>
                   <p className="text-sm text-gray-600">
                     {currentImages.length > 0
-                      ? `${currentImages.length} imagen${currentImages.length !== 1 ? "es" : ""} actual${currentImages.length !== 1 ? "es" : ""}. Puedes cambiarlas.`
+                      ? `${currentImages.length} imagen${currentImages.length !== 1 ? "es" : ""} actual${currentImages.length !== 1 ? "es" : ""}. Puedes reordenarlas o cambiarlas.`
                       : "No hay imágenes. Agrega nuevas imágenes."}
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <MultipleImageUpload
+                  <SortableImageUpload
                     onImagesSelect={handleImagesSelect}
                     currentImages={currentImages}
                     maxImages={3}
@@ -341,7 +340,8 @@ export default function EditarObra({ params }: PageProps) {
                     <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                       <p className="text-sm text-green-700">
                         ✅ {selectedImages.length} nueva{selectedImages.length !== 1 ? "s" : ""} imagen
-                        {selectedImages.length !== 1 ? "es" : ""} seleccionada{selectedImages.length !== 1 ? "s" : ""}
+                        {selectedImages.length !== 1 ? "es" : ""} seleccionada{selectedImages.length !== 1 ? "s" : ""}{" "}
+                        en orden
                       </p>
                       <p className="text-xs text-green-600 mt-1">Se reemplazarán las imágenes actuales al guardar</p>
                     </div>
@@ -349,7 +349,6 @@ export default function EditarObra({ params }: PageProps) {
                 </CardContent>
               </Card>
 
-              {/* Configuración */}
               <Card>
                 <CardHeader>
                   <CardTitle>Configuración</CardTitle>
@@ -382,7 +381,6 @@ export default function EditarObra({ params }: PageProps) {
                 </CardContent>
               </Card>
 
-              {/* Botones de Acción */}
               <div className="flex flex-col gap-3">
                 <Button type="submit" className="w-full bg-gray-900 hover:bg-gray-800" disabled={isLoading}>
                   {isLoading ? (
@@ -411,7 +409,6 @@ export default function EditarObra({ params }: PageProps) {
                 </Link>
               </div>
 
-              {/* Indicador de progreso cuando está guardando */}
               {isLoading && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -420,7 +417,7 @@ export default function EditarObra({ params }: PageProps) {
                       <p className="text-sm font-medium text-blue-800">Actualizando obra...</p>
                       <p className="text-xs text-blue-600">
                         {selectedImages.length > 0
-                          ? "Subiendo nuevas imágenes y guardando cambios"
+                          ? "Subiendo nuevas imágenes en orden y guardando cambios"
                           : "Guardando cambios"}
                       </p>
                     </div>

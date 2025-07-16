@@ -68,13 +68,15 @@ export default async function ArtworkDetailPage({ params }: PageProps) {
               <span className="text-sm md:text-base">Volver</span>
             </Link>
             <div className="flex-1 flex justify-center">
-              <Image
-                src="/images/negro-lucho.png"
-                alt="Fulco Logo"
-                width={120}
-                height={60}
-                className="h-8 md:h-10 w-auto"
-              />
+              <Link href="/">
+                <Image
+                  src="/images/negro-lucho.png"
+                  alt="Fulco Logo"
+                  width={120}
+                  height={60}
+                  className="h-8 md:h-10 w-auto"
+                />
+              </Link>
             </div>
             <div className="w-20"></div>
           </div>
