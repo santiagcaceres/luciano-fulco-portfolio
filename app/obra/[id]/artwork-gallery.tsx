@@ -58,16 +58,10 @@ export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
     setCurrentImageIndex((prev) => (prev - 1 + validImages.length) % validImages.length)
   }
 
-  const goToImage = (index: number) => {
-    if (index >= 0 && index < validImages.length) {
-      setCurrentImageIndex(index)
-    }
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Imagen principal - dimensiones naturales, SIN CLICK */}
-      <div className="relative overflow-hidden rounded-lg shadow-xl bg-white group">
+    <div className="space-y-4">
+      {/* Imagen principal - RESPETA PROPORCIONES ORIGINALES */}
+      <div className="relative overflow-hidden rounded-lg shadow-xl bg-white">
         <div className="relative">
           <Image
             src={validImages[currentImageIndex] || "/placeholder.svg"}
@@ -77,6 +71,12 @@ export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
             className="w-full h-auto object-contain rounded-lg"
             sizes="(max-width: 768px) 100vw, 50vw"
             priority
+            quality={95}
+            style={{
+              width: "100%",
+              height: "auto",
+              maxHeight: "70vh", // Limitar altura máxima para pantallas muy altas
+            }}
             onError={(e) => {
               console.error("Error loading image:", validImages[currentImageIndex])
               e.currentTarget.src = `https://placehold.co/800x600/E5E7EB/374141/jpeg?text=Error+cargando+imagen`
@@ -89,14 +89,14 @@ export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
           <>
             <button
               onClick={prevImage}
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition-all duration-200 shadow-lg opacity-0 group-hover:opacity-100"
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition-all duration-200 shadow-lg"
               aria-label="Imagen anterior"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
             <button
               onClick={nextImage}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition-all duration-200 shadow-lg opacity-0 group-hover:opacity-100"
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition-all duration-200 shadow-lg"
               aria-label="Imagen siguiente"
             >
               <ChevronRight className="w-6 h-6" />
@@ -110,60 +110,11 @@ export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
         )}
       </div>
 
-      {/* Miniaturas - también dimensiones naturales, SIN CLICK PARA AMPLIAR */}
-      {validImages.length > 1 && (
-        <div className="space-y-3">
-          <p className="text-base text-gray-700 font-medium">
-            Más vistas de esta obra ({validImages.length} imágenes):
-          </p>
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
-            {validImages.map((image, index) => (
-              <button
-                key={`${image}-${index}`}
-                onClick={() => goToImage(index)}
-                className={`relative overflow-hidden rounded-lg border-3 transition-all duration-200 hover:scale-105 group ${
-                  index === currentImageIndex
-                    ? "border-gray-800 ring-4 ring-gray-300 shadow-lg"
-                    : "border-gray-300 hover:border-gray-600 hover:shadow-md"
-                }`}
-                aria-label={`Ver imagen ${index + 1}`}
-              >
-                <div className="relative w-full h-20 md:h-24">
-                  <Image
-                    src={image || "/placeholder.svg"}
-                    alt={`${title} - Miniatura ${index + 1}`}
-                    fill
-                    className="object-contain transition-transform duration-200 group-hover:scale-110"
-                    sizes="(max-width: 768px) 25vw, 12.5vw"
-                    onError={(e) => {
-                      console.error("Error loading thumbnail:", image)
-                      e.currentTarget.src = `https://placehold.co/200x200/E5E7EB/374151/jpeg?text=Error`
-                    }}
-                  />
-                </div>
-
-                {/* Indicador de imagen activa */}
-                {index === currentImageIndex && (
-                  <div className="absolute inset-0 bg-gray-800/30 flex items-center justify-center">
-                    <div className="w-3 h-3 bg-white rounded-full shadow-lg"></div>
-                  </div>
-                )}
-
-                {/* Número de imagen */}
-                <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
-                  {index + 1}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Información adicional - SIN MENCIÓN DE AMPLIAR */}
+      {/* Información - SIN MINIATURAS */}
       <div className="text-sm text-gray-600 text-center bg-gray-50 p-3 rounded-lg">
         {validImages.length > 1
-          ? "Usa las flechas o haz clic en las miniaturas para navegar entre las imágenes"
-          : "Vista completa de la obra"}
+          ? `Usa las flechas para navegar entre las ${validImages.length} imágenes de esta obra`
+          : "Vista completa de la obra en su proporción original"}
       </div>
     </div>
   )
