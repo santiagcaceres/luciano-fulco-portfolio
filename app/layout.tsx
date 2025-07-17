@@ -5,7 +5,6 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { Analytics } from "@vercel/analytics/next"
-import { GoogleAnalytics } from "@/components/google-analytics"
 import { Suspense } from "react"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
@@ -111,7 +110,6 @@ export default function RootLayout({
             {children}
             <Toaster />
             <Analytics />
-            <GoogleAnalytics />
           </ThemeProvider>
         </Suspense>
       </body>

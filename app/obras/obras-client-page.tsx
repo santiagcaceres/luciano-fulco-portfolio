@@ -129,8 +129,8 @@ export default function ObrasClientPage({ artworks, categories, sortOptions }: O
           </div>
         </section>
 
-        {/* Filtros */}
-        <div className="bg-white/90 backdrop-blur-sm border-b shadow-sm sticky top-[68px] md:top-[84px] z-40">
+        {/* Filtros - NO FIJOS */}
+        <div className="bg-white/90 backdrop-blur-sm border-b shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
