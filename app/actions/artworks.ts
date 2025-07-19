@@ -9,7 +9,7 @@ const SUPABASE_ENABLED =
 
 const BUCKET_NAME = "artworks"
 
-// Datos de ejemplo con múltiples imágenes placeholder - ACTUALIZADO CON TÉCNICA MIXTA
+// Datos de ejemplo con múltiples imágenes placeholder
 const SAMPLE_ARTWORKS = [
   {
     id: "sample-1",
@@ -136,30 +136,8 @@ const SAMPLE_ARTWORKS = [
     ],
     created_at: "2024-01-10T10:00:00Z",
   },
-  // 🆕 NUEVA OBRA DE EJEMPLO CON TÉCNICA MIXTA
   {
     id: "sample-7",
-    title: "Fusión de Elementos",
-    category: "tecnica-mixta",
-    price: 2400,
-    description: "Técnica mixta sobre madera, 80x100cm",
-    detailed_description:
-      "Una exploración de la combinación de diferentes medios artísticos. Esta obra fusiona acrílico, óleo pastel y elementos de collage para crear una composición rica en texturas y significados. Cada técnica aporta su propia voz al diálogo visual.",
-    year: 2024,
-    dimensions: "80 x 100 cm",
-    technique: "Acrílico, óleo pastel y collage sobre madera",
-    status: "Disponible",
-    featured: false,
-    main_image_url: "https://placehold.co/800x600/8A2BE2/FFFFFF/jpeg?text=Fusión+de+Elementos+-+Vista+General",
-    gallery: [
-      "https://placehold.co/800x600/8A2BE2/FFFFFF/jpeg?text=Fusión+de+Elementos+-+Vista+General",
-      "https://placehold.co/800x600/9932CC/FFFFFF/jpeg?text=Fusión+de+Elementos+-+Detalle+Textura",
-      "https://placehold.co/800x600/BA55D3/000000/jpeg?text=Fusión+de+Elementos+-+Detalle+Collage",
-    ],
-    created_at: "2024-01-09T10:00:00Z",
-  },
-  {
-    id: "sample-8",
     title: "Paisaje Interior",
     category: "otros",
     price: 2400,
@@ -177,7 +155,7 @@ const SAMPLE_ARTWORKS = [
       "https://placehold.co/800x600/32CD32/FFFFFF/jpeg?text=Paisaje+Interior+-+Textura+Izquierda",
       "https://placehold.co/800x600/90EE90/000000/jpeg?text=Paisaje+Interior+-+Detalle+Madera",
     ],
-    created_at: "2024-01-08T10:00:00Z",
+    created_at: "2024-01-09T10:00:00Z",
   },
 ]
 

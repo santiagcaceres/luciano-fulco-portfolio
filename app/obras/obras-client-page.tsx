@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Filter, ArrowUp, ArrowDown } from "lucide-react"
+import { Search, Filter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 
 interface Artwork {
   id: string
@@ -27,10 +27,8 @@ interface ObrasClientPageProps {
 
 const CATEGORIES = [
   { id: "todos", label: "Todas las Obras", count: 0 },
-  { id: "oleos", label: "Óleos", count: 0 },
-  { id: "oleo-pastel", label: "Óleo Pastel", count: 0 },
   { id: "acrilicos", label: "Acrílicos", count: 0 },
-  { id: "tecnica-mixta", label: "Técnica Mixta", count: 0 },
+  { id: "oleos", label: "Óleos", count: 0 },
   { id: "acuarelas", label: "Acuarelas", count: 0 },
   { id: "dibujos", label: "Dibujos", count: 0 },
   { id: "otros", label: "Otros", count: 0 },
@@ -42,8 +40,16 @@ const STATUS_OPTIONS = [
   { id: "Vendida", label: "Vendidas" },
 ]
 
+const PRICE_RANGES = [
+  { id: "todos", label: "Todos los Precios" },
+  { id: "0-500", label: "Hasta USD 500" },
+  { id: "500-1000", label: "USD 500 - USD 1000" },
+  { id: "1000-2000", label: "USD 1000 - USD 2000" },
+  { id: "2000+", label: "Más de USD 2000" },
+]
+
 const SORT_OPTIONS = [
-  { id: "default", label: "Orden por Defecto", icon: ArrowUp },
+  { id: "default", label: "Orden por Defecto", icon: ArrowUpDown },
   { id: "price-asc", label: "Menor Precio", icon: ArrowUp },
   { id: "price-desc", label: "Mayor Precio", icon: ArrowDown },
 ]
@@ -51,9 +57,10 @@ const SORT_OPTIONS = [
 export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
   const [selectedCategory, setSelectedCategory] = useState("todos")
   const [selectedStatus, setSelectedStatus] = useState("todos")
+  const [selectedPriceRange, setSelectedPriceRange] = useState("todos")
   const [selectedSort, setSelectedSort] = useState("default")
   const [searchTerm, setSearchTerm] = useState("")
-  const [showFilters, setShowFilters] = useState(false) // CAMBIO: Inicia en false
+  const [showFilters, setShowFilters] = useState(false)
 
   // Calcular conteos de categorías
   const categoriesWithCounts = useMemo(() => {
@@ -75,13 +82,33 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
       // Filtro por estado
       const statusMatch = selectedStatus === "todos" || artwork.status === selectedStatus
 
+      // Filtro por rango de precio
+      let priceMatch = true
+      if (selectedPriceRange !== "todos") {
+        const price = artwork.price
+        switch (selectedPriceRange) {
+          case "0-500":
+            priceMatch = price <= 500
+            break
+          case "500-1000":
+            priceMatch = price > 500 && price <= 1000
+            break
+          case "1000-2000":
+            priceMatch = price > 1000 && price <= 2000
+            break
+          case "2000+":
+            priceMatch = price > 2000
+            break
+        }
+      }
+
       // Filtro por búsqueda
       const searchMatch =
         searchTerm === "" ||
         artwork.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         artwork.description.toLowerCase().includes(searchTerm.toLowerCase())
 
-      return categoryMatch && statusMatch && searchMatch
+      return categoryMatch && statusMatch && priceMatch && searchMatch
     })
 
     // Aplicar ordenamiento
@@ -93,17 +120,22 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
       default:
         return filtered
     }
-  }, [artworks, selectedCategory, selectedStatus, searchTerm, selectedSort])
+  }, [artworks, selectedCategory, selectedStatus, selectedPriceRange, searchTerm, selectedSort])
 
   const clearFilters = () => {
     setSelectedCategory("todos")
     setSelectedStatus("todos")
+    setSelectedPriceRange("todos")
     setSelectedSort("default")
     setSearchTerm("")
   }
 
   const hasActiveFilters =
-    selectedCategory !== "todos" || selectedStatus !== "todos" || selectedSort !== "default" || searchTerm !== ""
+    selectedCategory !== "todos" ||
+    selectedStatus !== "todos" ||
+    selectedPriceRange !== "todos" ||
+    selectedSort !== "default" ||
+    searchTerm !== ""
 
   return (
     <div className="min-h-screen relative">
@@ -166,83 +198,106 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
               </Button>
             </div>
 
-            {/* CAMBIO: Solo mostrar filtros cuando showFilters es true */}
-            {showFilters && (
-              <div className="space-y-6">
-                {/* Categorías principales */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Categorías</label>
-                  <div className="flex flex-wrap gap-2">
-                    {categoriesWithCounts.map((category) => (
-                      <Button
-                        key={category.id}
-                        variant={selectedCategory === category.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedCategory(category.id)}
-                        className={`${
-                          selectedCategory === category.id
-                            ? "bg-black text-white hover:bg-gray-800"
-                            : "bg-white/90 hover:bg-gray-50"
-                        }`}
-                      >
-                        {category.label}
-                        <span className="ml-2 text-xs opacity-70">({category.count})</span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+            {/* Categorías principales */}
+            <div className="mb-6">
+              <div className="flex flex-wrap gap-2">
+                {categoriesWithCounts.map((category) => (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.id ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={`${
+                      selectedCategory === category.id
+                        ? "bg-black text-white hover:bg-gray-800"
+                        : "bg-white/90 hover:bg-gray-50"
+                    }`}
+                  >
+                    {category.label}
+                    <span className="ml-2 text-xs opacity-70">({category.count})</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
 
-                {/* Ordenamiento */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Ordenar por</label>
-                  <div className="flex flex-wrap gap-2">
-                    {SORT_OPTIONS.map((option) => {
-                      const Icon = option.icon
-                      return (
+            {/* Ordenamiento - Siempre visible */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ordenar por:</label>
+              <div className="flex flex-wrap gap-2">
+                {SORT_OPTIONS.map((option) => {
+                  const Icon = option.icon
+                  return (
+                    <Button
+                      key={option.id}
+                      variant={selectedSort === option.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedSort(option.id)}
+                      className={`flex items-center gap-2 ${
+                        selectedSort === option.id
+                          ? "bg-black text-white hover:bg-gray-800"
+                          : "bg-white/90 hover:bg-gray-50"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {option.label}
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Filtros adicionales (colapsables) */}
+            {showFilters && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Filtro por estado */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                    <div className="flex flex-wrap gap-2">
+                      {STATUS_OPTIONS.map((status) => (
                         <Button
-                          key={option.id}
-                          variant={selectedSort === option.id ? "default" : "outline"}
+                          key={status.id}
+                          variant={selectedStatus === status.id ? "default" : "outline"}
                           size="sm"
-                          onClick={() => setSelectedSort(option.id)}
-                          className={`flex items-center gap-2 ${
-                            selectedSort === option.id
+                          onClick={() => setSelectedStatus(status.id)}
+                          className={`${
+                            selectedStatus === status.id
                               ? "bg-black text-white hover:bg-gray-800"
                               : "bg-white/90 hover:bg-gray-50"
                           }`}
                         >
-                          <Icon className="w-4 h-4" />
-                          {option.label}
+                          {status.label}
                         </Button>
-                      )
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* Filtro por estado */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Estado</label>
-                  <div className="flex flex-wrap gap-2">
-                    {STATUS_OPTIONS.map((status) => (
-                      <Button
-                        key={status.id}
-                        variant={selectedStatus === status.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedStatus(status.id)}
-                        className={`${
-                          selectedStatus === status.id
-                            ? "bg-black text-white hover:bg-gray-800"
-                            : "bg-white/90 hover:bg-gray-50"
-                        }`}
-                      >
-                        {status.label}
-                      </Button>
-                    ))}
+                  {/* Filtro por precio */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Rango de Precio</label>
+                    <div className="flex flex-wrap gap-2">
+                      {PRICE_RANGES.map((range) => (
+                        <Button
+                          key={range.id}
+                          variant={selectedPriceRange === range.id ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedPriceRange(range.id)}
+                          className={`${
+                            selectedPriceRange === range.id
+                              ? "bg-black text-white hover:bg-gray-800"
+                              : "bg-white/90 hover:bg-gray-50"
+                          }`}
+                        >
+                          {range.label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* Botón limpiar filtros */}
                 {hasActiveFilters && (
-                  <div className="pt-4 border-t">
+                  <div className="pt-4">
                     <Button variant="ghost" onClick={clearFilters} className="text-gray-600 hover:text-gray-800">
                       Limpiar todos los filtros
                     </Button>
