@@ -85,11 +85,11 @@ export default async function ArtworkDetailPage({ params }: PageProps) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-12">
-          <div className="space-y-3 md:space-y-4">
-            {/* Galería de imágenes con navegación */}
+          <div className="w-full">
+            {/* Galería de imágenes con navegación - SIN SPACE-Y */}
             <ArtworkGallery images={galleryImages} title={artwork.title} />
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 mt-4">
               <Badge className="capitalize text-xs md:text-sm">{artwork.category}</Badge>
               {artwork.subcategory && (
                 <Badge variant="outline" className="capitalize bg-white/90 text-xs md:text-sm">

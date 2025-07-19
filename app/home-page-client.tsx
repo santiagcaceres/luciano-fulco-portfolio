@@ -26,6 +26,7 @@ export default function HomePageClient({ featuredArtworks }: HomePageClientProps
     if (availableCategories.has("oleos")) cats.push({ id: "oleos", name: "Óleos" })
     if (availableCategories.has("oleo-pastel")) cats.push({ id: "oleo-pastel", name: "Óleo Pastel" })
     if (availableCategories.has("acrilicos")) cats.push({ id: "acrilicos", name: "Acrílicos" })
+    if (availableCategories.has("tecnica-mixta")) cats.push({ id: "tecnica-mixta", name: "Técnica Mixta" }) // 🆕 NUEVA CATEGORÍA EN 4TO LUGAR
     if (availableCategories.has("acuarelas")) cats.push({ id: "acuarelas", name: "Acuarelas" })
     if (availableCategories.has("dibujos")) cats.push({ id: "dibujos", name: "Dibujos" })
     if (availableCategories.has("otros")) cats.push({ id: "otros", name: "Otros" })

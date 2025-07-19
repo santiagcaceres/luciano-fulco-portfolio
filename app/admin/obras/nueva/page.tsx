@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, AlertTriangle, Loader2 } from "lucide-react"
+import { ArrowLeft, Save, AlertTriangle, Loader2, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -21,6 +21,7 @@ export default function NuevaObra() {
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [isEspatula, setIsEspatula] = useState(false)
   const [error, setError] = useState<string>("")
+  const [uploadProgress, setUploadProgress] = useState<string>("")
 
   useEffect(() => {
     const token = localStorage.getItem("admin-token")
@@ -35,14 +36,27 @@ export default function NuevaObra() {
     e.preventDefault()
     setIsLoading(true)
     setError("")
+    setUploadProgress("")
 
     console.log("🚀 Starting form submission...")
 
     const formData = new FormData(e.target as HTMLFormElement)
 
-    // Solo validar que hay imágenes
+    // Validar que hay imágenes
     if (selectedImages.length === 0) {
       setError("Debes seleccionar al menos una imagen.")
+      setIsLoading(false)
+      return
+    }
+
+    // Validar tamaño total
+    const totalSize = selectedImages.reduce((acc, img) => acc + img.size, 0)
+    const totalSizeMB = totalSize / 1024 / 1024
+
+    if (totalSizeMB > 15) {
+      setError(
+        `El tamaño total de las imágenes (${totalSizeMB.toFixed(1)}MB) es demasiado grande. Máximo 15MB en total.`,
+      )
       setIsLoading(false)
       return
     }
@@ -51,21 +65,26 @@ export default function NuevaObra() {
       formData.set("subcategory", "espatula")
     }
 
-    // Añadir imágenes en su orden actual (ya están optimizadas)
-    console.log("📎 Adding optimized images to form data:", selectedImages.length)
-    selectedImages.forEach((image, index) => {
-      console.log(`Adding optimized image ${index + 1}:`, image.name, `${(image.size / 1024 / 1024).toFixed(2)}MB`)
-      formData.append("images", image)
-    })
-
     try {
+      setUploadProgress("Preparando imágenes optimizadas...")
+
+      // Añadir imágenes ya optimizadas
+      console.log("📎 Adding optimized images to form data:", selectedImages.length)
+      selectedImages.forEach((image, index) => {
+        console.log(`Adding optimized image ${index + 1}:`, image.name, `${(image.size / 1024 / 1024).toFixed(2)}MB`)
+        formData.append("images", image)
+      })
+
+      setUploadProgress("Subiendo obra a la base de datos...")
       console.log("📞 Calling createArtwork with optimized images...")
+
       const result = await createArtwork(formData)
       console.log("✅ createArtwork result:", result)
 
       // Verificar que el resultado tenga un ID válido
       if (result && (result.id || result.title)) {
         console.log("🎉 Artwork created successfully!")
+        setUploadProgress("¡Obra creada exitosamente!")
 
         // Guardar información para mostrar el mensaje de éxito
         const artworkTitle = result.title || (formData.get("title") as string)
@@ -77,15 +96,32 @@ export default function NuevaObra() {
           }),
         )
 
-        // Redirigir inmediatamente
-        router.push("/admin/obras")
+        // Redirigir después de un breve delay
+        setTimeout(() => {
+          router.push("/admin/obras")
+        }, 1000)
       } else {
         console.error("❌ Invalid result from createArtwork:", result)
-        throw new Error("Error al crear la obra. Inténtalo de nuevo.")
+        throw new Error("Error al crear la obra. Respuesta inválida del servidor.")
       }
     } catch (error: any) {
       console.error("💥 Error creating artwork:", error)
-      setError(error.message || "Error al crear la obra. Inténtalo de nuevo.")
+
+      // Mejorar mensajes de error específicos
+      let errorMessage = "Error al crear la obra. Inténtalo de nuevo."
+
+      if (error.message?.includes("payload too large") || error.message?.includes("413")) {
+        errorMessage = "Las imágenes son demasiado grandes. Intenta con imágenes más pequeñas."
+      } else if (error.message?.includes("network") || error.message?.includes("fetch")) {
+        errorMessage = "Error de conexión. Verifica tu internet e inténtalo de nuevo."
+      } else if (error.message?.includes("timeout")) {
+        errorMessage = "La subida tardó demasiado. Intenta con imágenes más pequeñas."
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
+      setError(errorMessage)
+      setUploadProgress("")
     } finally {
       setIsLoading(false)
     }
@@ -94,6 +130,7 @@ export default function NuevaObra() {
   const handleImagesChange = (files: File[]) => {
     setSelectedImages(files)
     setError("") // Limpiar error cuando se seleccionan imágenes
+    setUploadProgress("")
   }
 
   if (!isAuthenticated) {
@@ -151,9 +188,10 @@ export default function NuevaObra() {
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <option value="">Seleccionar categoría</option>
-                      <option value="acrilicos">Acrílicos</option>
                       <option value="oleos">Óleos</option>
                       <option value="oleo-pastel">Óleo Pastel</option>
+                      <option value="acrilicos">Acrílicos</option>
+                      <option value="tecnica-mixta">Técnica Mixta</option>
                       <option value="acuarelas">Acuarelas</option>
                       <option value="dibujos">Dibujos</option>
                       <option value="otros">Otros</option>
@@ -298,7 +336,7 @@ export default function NuevaObra() {
                 </Button>
               </div>
 
-              {/* Mensajes de estado */}
+              {/* Mensajes de estado mejorados */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -311,28 +349,31 @@ export default function NuevaObra() {
                 </div>
               )}
 
-              {selectedImages.length === 0 && !error && (
+              {selectedImages.length === 0 && !error && !isLoading && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-sm text-yellow-800">⚠️ Selecciona al menos una imagen para continuar</p>
                 </div>
               )}
 
-              {isLoading && (
+              {uploadProgress && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center">
-                    <Loader2 className="w-4 h-4 border-b-2 border-blue-600 mr-3 animate-spin" />
+                    {uploadProgress.includes("exitosamente") ? (
+                      <CheckCircle className="w-4 h-4 text-green-600 mr-3" />
+                    ) : (
+                      <Loader2 className="w-4 h-4 text-blue-600 mr-3 animate-spin" />
+                    )}
                     <div>
-                      <p className="text-sm font-medium text-blue-800">Subiendo imágenes optimizadas...</p>
-                      <p className="text-xs text-blue-600">
-                        Procesando {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""}. Esto puede
-                        tomar unos momentos.
-                      </p>
+                      <p className="text-sm font-medium text-blue-800">{uploadProgress}</p>
+                      {isLoading && !uploadProgress.includes("exitosamente") && (
+                        <p className="text-xs text-blue-600">No cierres esta ventana hasta que termine el proceso.</p>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
 
-              {selectedImages.length > 0 && !isLoading && (
+              {selectedImages.length > 0 && !isLoading && !error && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <p className="text-sm text-green-700">
                     ✅ {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""} optimizada
@@ -344,6 +385,17 @@ export default function NuevaObra() {
                   </p>
                 </div>
               )}
+
+              {/* Consejos para evitar errores */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-800 mb-2">💡 Consejos para evitar errores:</p>
+                <ul className="text-xs text-gray-600 space-y-1">
+                  <li>• Las imágenes se optimizan automáticamente</li>
+                  <li>• Tamaño máximo recomendado: 10MB por imagen</li>
+                  <li>• Formatos soportados: JPG, PNG, WebP, GIF</li>
+                  <li>• Mantén una conexión estable durante la subida</li>
+                </ul>
+              </div>
             </div>
           </div>
         </form>

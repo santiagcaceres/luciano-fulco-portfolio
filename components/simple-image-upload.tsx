@@ -1,16 +1,11 @@
 "use client"
-import { useState, useRef, useEffect } from "react"
-import { Trash2, Upload, AlertCircle, ArrowLeft, ArrowRight, Star, Loader2 } from "lucide-react"
+
+import type React from "react"
+import { useState, useRef, useCallback } from "react"
+import { Trash2, Plus, Upload, AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { compressImages } from "@/lib/image-compression"
-
-interface ImageObject {
-  file: File
-  previewUrl: string
-  originalSize?: number
-  compressedSize?: number
-}
+import { compressImages, validateImageFiles } from "@/lib/image-compression"
 
 interface SimpleImageUploadProps {
   onImagesChange: (files: File[]) => void
@@ -18,123 +13,142 @@ interface SimpleImageUploadProps {
   className?: string
 }
 
+interface ImagePreview {
+  file: File
+  url: string
+  isProcessing: boolean
+  error?: string
+}
+
 export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "" }: SimpleImageUploadProps) {
-  const [images, setImages] = useState<ImageObject[]>([])
+  const [previews, setPreviews] = useState<ImagePreview[]>([])
+  const [isDragging, setIsDragging] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string>("")
-  const [isCompressing, setIsCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Limpiar los object URLs cuando el componente se desmonte para evitar fugas de memoria
-  useEffect(() => {
-    return () => {
-      images.forEach((image) => URL.revokeObjectURL(image.previewUrl))
-    }
-  }, [images])
+  const processFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return
 
-  const handleFileSelection = async (selectedFiles: FileList | null) => {
-    if (!selectedFiles) return
+      setError("")
+      setIsProcessing(true)
+
+      try {
+        const fileArray = Array.from(files)
+
+        // Validar archivos antes de procesarlos
+        const validation = validateImageFiles(fileArray)
+        if (!validation.valid) {
+          setError(validation.errors.join(" "))
+          setIsProcessing(false)
+          return
+        }
+
+        if (fileArray.length > maxImages) {
+          setError(`Máximo ${maxImages} archivos permitidos`)
+          setIsProcessing(false)
+          return
+        }
+
+        // Crear previews iniciales (sin procesar)
+        const initialPreviews: ImagePreview[] = fileArray.map((file) => ({
+          file,
+          url: URL.createObjectURL(file),
+          isProcessing: true,
+        }))
+
+        setPreviews(initialPreviews)
+
+        console.log("🔄 Iniciando procesamiento de imágenes...")
+
+        // Comprimir imágenes
+        const compressedFiles = await compressImages(fileArray)
+
+        // Actualizar previews con archivos comprimidos
+        const finalPreviews: ImagePreview[] = compressedFiles.map((file, index) => ({
+          file,
+          url: URL.createObjectURL(file),
+          isProcessing: false,
+        }))
+
+        setPreviews(finalPreviews)
+        onImagesChange(compressedFiles)
+
+        console.log("✅ Procesamiento completado exitosamente")
+      } catch (error: any) {
+        console.error("❌ Error procesando imágenes:", error)
+        setError(error.message || "Error al procesar las imágenes. Intenta con archivos más pequeños.")
+        setPreviews([])
+        onImagesChange([])
+      } finally {
+        setIsProcessing(false)
+      }
+    },
+    [maxImages, onImagesChange],
+  )
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    processFiles(files)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const files = e.dataTransfer.files
+    processFiles(files)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const removeImage = (index: number) => {
+    const newPreviews = previews.filter((_, i) => i !== index)
+    const newFiles = newPreviews.map((p) => p.file)
+
+    setPreviews(newPreviews)
+    onImagesChange(newFiles)
     setError("")
 
-    const filesArray = Array.from(selectedFiles)
-
-    if (filesArray.length > maxImages) {
-      setError(`No puedes seleccionar más de ${maxImages} imágenes.`)
-      onImagesChange([]) // Notificar que la selección es inválida
-      return
-    }
-
-    // Limpiar URLs viejas antes de crear nuevas
-    images.forEach((image) => URL.revokeObjectURL(image.previewUrl))
-
-    try {
-      setIsCompressing(true)
-
-      // Comprimir imágenes si es necesario
-      console.log("🗜️ Iniciando compresión de imágenes...")
-      const compressedFiles = await compressImages(filesArray)
-
-      const newImageObjects: ImageObject[] = compressedFiles.map((file, index) => ({
-        file,
-        previewUrl: URL.createObjectURL(file),
-        originalSize: filesArray[index].size,
-        compressedSize: file.size,
-      }))
-
-      setImages(newImageObjects)
-      onImagesChange(newImageObjects.map((img) => img.file))
-
-      console.log("✅ Compresión completada")
-    } catch (error) {
-      console.error("Error durante la compresión:", error)
-      setError("Error al procesar las imágenes. Inténtalo de nuevo.")
-    } finally {
-      setIsCompressing(false)
+    // Limpiar el input file
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
-  const removeImage = (indexToRemove: number) => {
-    const imageToRemove = images[indexToRemove]
-    URL.revokeObjectURL(imageToRemove.previewUrl)
-
-    const newImages = images.filter((_, index) => index !== indexToRemove)
-    setImages(newImages)
-    onImagesChange(newImages.map((img) => img.file))
-    setError("") // Limpiar error al remover imagen
+  const handleButtonClick = () => {
+    if (!isProcessing) {
+      fileInputRef.current?.click()
+    }
   }
 
-  const moveImage = (index: number, direction: "left" | "right") => {
-    const newIndex = direction === "left" ? index - 1 : index + 1
-    if (newIndex < 0 || newIndex >= images.length) return
-
-    const newImages = [...images]
-    // Intercambiar elementos
-    ;[newImages[index], newImages[newIndex]] = [newImages[newIndex], newImages[index]]
-
-    setImages(newImages)
-    onImagesChange(newImages.map((img) => img.file))
-  }
+  // Calcular estadísticas
+  const totalSize = previews.reduce((acc, p) => acc + p.file.size, 0)
+  const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2)
+  const hasProcessingImages = previews.some((p) => p.isProcessing)
 
   return (
     <div className={`space-y-4 ${className}`}>
+      {/* Input file oculto */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        onChange={handleFileChange}
         multiple
-        onChange={(e) => handleFileSelection(e.target.files)}
         className="hidden"
-        disabled={isCompressing}
+        disabled={isProcessing}
       />
 
-      {/* Área de Carga */}
-      <div
-        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-          isCompressing
-            ? "border-blue-300 bg-blue-50 cursor-not-allowed"
-            : "cursor-pointer hover:border-gray-400 hover:bg-gray-50"
-        }`}
-        onClick={() => !isCompressing && fileInputRef.current?.click()}
-      >
-        {isCompressing ? (
-          <>
-            <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-2 animate-spin" />
-            <p className="text-sm font-medium text-blue-700 mb-1">Optimizando imágenes...</p>
-            <p className="text-xs text-blue-600">Comprimiendo para mejorar la velocidad de carga</p>
-          </>
-        ) : (
-          <>
-            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm font-medium text-gray-700 mb-1">
-              {images.length > 0 ? "Cambiar Selección" : "Seleccionar Imágenes"}
-            </p>
-            <p className="text-xs text-gray-400 mb-4">Cualquier formato • Optimización automática</p>
-            <p className="text-xs text-gray-500">
-              {images.length} de {maxImages} imágenes seleccionadas
-            </p>
-          </>
-        )}
-      </div>
-
+      {/* Mostrar error si existe */}
       {error && (
         <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -142,90 +156,158 @@ export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "
         </div>
       )}
 
-      {/* Vistas Previas y Controles */}
-      {images.length > 0 && (
+      {/* Imágenes seleccionadas */}
+      {previews.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-700">Orden de las imágenes:</p>
-          <div className="grid grid-cols-1 gap-3">
-            {images.map((image, index) => (
-              <div key={image.previewUrl} className="flex items-center gap-3 p-3 border rounded-lg bg-white shadow-sm">
-                <Image
-                  src={image.previewUrl || "/placeholder.svg"}
-                  alt={`Preview ${index + 1}`}
-                  width={80}
-                  height={80}
-                  className="w-16 h-16 object-cover rounded-md border flex-shrink-0"
-                />
-                <div className="flex-grow min-w-0 space-y-1">
-                  <p className="text-xs font-medium text-gray-800 truncate" title={image.file.name}>
-                    {image.file.name}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span>{`${(image.file.size / 1024 / 1024).toFixed(2)} MB`}</span>
-                    {image.originalSize && image.originalSize !== image.compressedSize && (
-                      <span className="text-green-600">
-                        (optimizada desde {(image.originalSize / 1024 / 1024).toFixed(2)} MB)
-                      </span>
-                    )}
-                  </div>
-                  {index === 0 && (
-                    <div className="flex items-center gap-1 text-xs font-semibold text-amber-600">
-                      <Star className="w-3 h-3 fill-current" />
-                      <span>Principal</span>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-700">
+              Imágenes seleccionadas ({previews.length}/{maxImages})
+            </p>
+            {!hasProcessingImages && !isProcessing && (
+              <div className="flex items-center gap-1 text-xs text-green-600">
+                <CheckCircle className="w-3 h-3" />
+                <span>Optimizadas ({totalSizeMB}MB)</span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {previews.map((preview, index) => (
+              <div key={`preview-${index}`} className="relative group">
+                <div className="relative">
+                  <Image
+                    src={preview.url || "/placeholder.svg"}
+                    alt={`Preview ${index + 1}`}
+                    width={300}
+                    height={200}
+                    className="w-full h-40 object-cover rounded-lg border"
+                    onError={(e) => {
+                      console.error("Error loading preview:", preview.url)
+                      e.currentTarget.src = `https://placehold.co/300x200/E5E7EB/374151/jpeg?text=Error+cargando`
+                    }}
+                  />
+
+                  {/* Overlay de procesamiento */}
+                  {preview.isProcessing && (
+                    <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                      <div className="text-white text-center">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                        <p className="text-xs">Optimizando...</p>
+                      </div>
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button
+
+                {/* Botón eliminar */}
+                {!preview.isProcessing && (
+                  <button
                     type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => moveImage(index, "left")}
-                    disabled={index === 0 || isCompressing}
-                    className="h-7 w-7"
-                    title="Mover a la izquierda"
-                  >
-                    <ArrowLeft className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => moveImage(index, "right")}
-                    disabled={index === images.length - 1 || isCompressing}
-                    className="h-7 w-7"
-                    title="Mover a la derecha"
-                  >
-                    <ArrowRight className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
                     onClick={() => removeImage(index)}
-                    disabled={isCompressing}
-                    className="h-7 w-7"
-                    title="Eliminar imagen"
+                    className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full hover:bg-red-700 transition-colors shadow-lg opacity-0 group-hover:opacity-100"
+                    disabled={isProcessing}
                   >
                     <Trash2 className="w-3 h-3" />
-                  </Button>
+                  </button>
+                )}
+
+                {/* Etiqueta de posición */}
+                <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                  {index === 0 ? "Principal" : `${index + 1} de ${maxImages}`}
                 </div>
+
+                {/* Información del archivo */}
+                {!preview.isProcessing && (
+                  <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                    {(preview.file.size / 1024 / 1024).toFixed(1)}MB
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Información sobre optimización */}
-      {images.length > 0 && (
-        <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-          <p className="font-medium mb-1">ℹ️ Optimización automática:</p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Las imágenes grandes se comprimen automáticamente</li>
-            <li>Se mantiene alta calidad visual</li>
-            <li>Mejora la velocidad de carga del sitio</li>
-            <li>Tamaño total: {(images.reduce((acc, img) => acc + img.file.size, 0) / 1024 / 1024).toFixed(2)} MB</li>
-          </ul>
+      {/* Área de subida */}
+      {previews.length < maxImages && (
+        <div
+          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+            isDragging ? "border-gray-600 bg-gray-50" : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+          } ${isProcessing ? "opacity-50 pointer-events-none" : ""}`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        >
+          <div className="flex flex-col items-center">
+            {isProcessing ? (
+              <Loader2 className="w-8 h-8 text-gray-400 mb-2 animate-spin" />
+            ) : (
+              <Upload className="w-8 h-8 text-gray-400 mb-2" />
+            )}
+
+            <p className="text-sm font-medium text-gray-700 mb-1">
+              {isProcessing
+                ? "Procesando imágenes..."
+                : isDragging
+                  ? "Suelta las imágenes aquí"
+                  : "Arrastra imágenes aquí"}
+            </p>
+
+            <p className="text-xs text-gray-500 mb-2">
+              {previews.length} de {maxImages} imágenes • Optimización automática
+            </p>
+
+            <p className="text-xs text-gray-400 mb-4">JPG, PNG, WebP, GIF • Hasta 50MB por archivo</p>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleButtonClick}
+              disabled={isProcessing}
+              className="bg-gray-900 text-white hover:bg-gray-800 border-gray-900"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Seleccionar Imágenes
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Información adicional */}
+      <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+        <p>
+          <strong>Optimización automática:</strong>
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-1">
+          <li>Las imágenes se comprimen automáticamente para mejor rendimiento</li>
+          <li>Máximo {maxImages} archivos por obra</li>
+          <li>La primera imagen será la imagen principal</li>
+          <li>Formatos soportados: JPG, PNG, WebP, GIF</li>
+          <li>Tamaño máximo: 50MB por archivo (se optimizará automáticamente)</li>
+        </ul>
+      </div>
+
+      {/* Estado de procesamiento global */}
+      {isProcessing && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <Loader2 className="w-4 h-4 text-blue-600 mr-3 animate-spin" />
+            <div>
+              <p className="text-sm font-medium text-blue-800">Optimizando imágenes...</p>
+              <p className="text-xs text-blue-600">
+                Esto puede tomar unos momentos dependiendo del tamaño de las imágenes.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Filter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Search, Filter, ArrowUp, ArrowDown } from "lucide-react"
 
 interface Artwork {
   id: string
@@ -27,8 +27,10 @@ interface ObrasClientPageProps {
 
 const CATEGORIES = [
   { id: "todos", label: "Todas las Obras", count: 0 },
-  { id: "acrilicos", label: "Acrílicos", count: 0 },
   { id: "oleos", label: "Óleos", count: 0 },
+  { id: "oleo-pastel", label: "Óleo Pastel", count: 0 },
+  { id: "acrilicos", label: "Acrílicos", count: 0 },
+  { id: "tecnica-mixta", label: "Técnica Mixta", count: 0 }, // 🆕 NUEVA CATEGORÍA EN 4TO LUGAR
   { id: "acuarelas", label: "Acuarelas", count: 0 },
   { id: "dibujos", label: "Dibujos", count: 0 },
   { id: "otros", label: "Otros", count: 0 },
@@ -40,16 +42,9 @@ const STATUS_OPTIONS = [
   { id: "Vendida", label: "Vendidas" },
 ]
 
-const PRICE_RANGES = [
-  { id: "todos", label: "Todos los Precios" },
-  { id: "0-500", label: "Hasta USD 500" },
-  { id: "500-1000", label: "USD 500 - USD 1000" },
-  { id: "1000-2000", label: "USD 1000 - USD 2000" },
-  { id: "2000+", label: "Más de USD 2000" },
-]
-
+// 🔥 FILTROS DE PRECIO SIMPLIFICADOS - SOLO ORDENAMIENTO
 const SORT_OPTIONS = [
-  { id: "default", label: "Orden por Defecto", icon: ArrowUpDown },
+  { id: "default", label: "Orden por Defecto", icon: ArrowUp },
   { id: "price-asc", label: "Menor Precio", icon: ArrowUp },
   { id: "price-desc", label: "Mayor Precio", icon: ArrowDown },
 ]
@@ -57,7 +52,6 @@ const SORT_OPTIONS = [
 export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
   const [selectedCategory, setSelectedCategory] = useState("todos")
   const [selectedStatus, setSelectedStatus] = useState("todos")
-  const [selectedPriceRange, setSelectedPriceRange] = useState("todos")
   const [selectedSort, setSelectedSort] = useState("default")
   const [searchTerm, setSearchTerm] = useState("")
   const [showFilters, setShowFilters] = useState(false)
@@ -82,33 +76,13 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
       // Filtro por estado
       const statusMatch = selectedStatus === "todos" || artwork.status === selectedStatus
 
-      // Filtro por rango de precio
-      let priceMatch = true
-      if (selectedPriceRange !== "todos") {
-        const price = artwork.price
-        switch (selectedPriceRange) {
-          case "0-500":
-            priceMatch = price <= 500
-            break
-          case "500-1000":
-            priceMatch = price > 500 && price <= 1000
-            break
-          case "1000-2000":
-            priceMatch = price > 1000 && price <= 2000
-            break
-          case "2000+":
-            priceMatch = price > 2000
-            break
-        }
-      }
-
       // Filtro por búsqueda
       const searchMatch =
         searchTerm === "" ||
         artwork.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         artwork.description.toLowerCase().includes(searchTerm.toLowerCase())
 
-      return categoryMatch && statusMatch && priceMatch && searchMatch
+      return categoryMatch && statusMatch && searchMatch
     })
 
     // Aplicar ordenamiento
@@ -120,22 +94,17 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
       default:
         return filtered
     }
-  }, [artworks, selectedCategory, selectedStatus, selectedPriceRange, searchTerm, selectedSort])
+  }, [artworks, selectedCategory, selectedStatus, searchTerm, selectedSort])
 
   const clearFilters = () => {
     setSelectedCategory("todos")
     setSelectedStatus("todos")
-    setSelectedPriceRange("todos")
     setSelectedSort("default")
     setSearchTerm("")
   }
 
   const hasActiveFilters =
-    selectedCategory !== "todos" ||
-    selectedStatus !== "todos" ||
-    selectedPriceRange !== "todos" ||
-    selectedSort !== "default" ||
-    searchTerm !== ""
+    selectedCategory !== "todos" || selectedStatus !== "todos" || selectedSort !== "default" || searchTerm !== ""
 
   return (
     <div className="min-h-screen relative">
@@ -267,28 +236,6 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
                           }`}
                         >
                           {status.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Filtro por precio */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Rango de Precio</label>
-                    <div className="flex flex-wrap gap-2">
-                      {PRICE_RANGES.map((range) => (
-                        <Button
-                          key={range.id}
-                          variant={selectedPriceRange === range.id ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setSelectedPriceRange(range.id)}
-                          className={`${
-                            selectedPriceRange === range.id
-                              ? "bg-black text-white hover:bg-gray-800"
-                              : "bg-white/90 hover:bg-gray-50"
-                          }`}
-                        >
-                          {range.label}
                         </Button>
                       ))}
                     </div>
