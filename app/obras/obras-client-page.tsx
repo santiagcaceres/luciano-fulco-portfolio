@@ -30,7 +30,7 @@ const CATEGORIES = [
   { id: "oleos", label: "Óleos", count: 0 },
   { id: "oleo-pastel", label: "Óleo Pastel", count: 0 },
   { id: "acrilicos", label: "Acrílicos", count: 0 },
-  { id: "tecnica-mixta", label: "Técnica Mixta", count: 0 }, // 🆕 NUEVA CATEGORÍA EN 4TO LUGAR
+  { id: "tecnica-mixta", label: "Técnica Mixta", count: 0 },
   { id: "acuarelas", label: "Acuarelas", count: 0 },
   { id: "dibujos", label: "Dibujos", count: 0 },
   { id: "otros", label: "Otros", count: 0 },
@@ -42,7 +42,6 @@ const STATUS_OPTIONS = [
   { id: "Vendida", label: "Vendidas" },
 ]
 
-// 🔥 FILTROS DE PRECIO SIMPLIFICADOS - SOLO ORDENAMIENTO
 const SORT_OPTIONS = [
   { id: "default", label: "Orden por Defecto", icon: ArrowUp },
   { id: "price-asc", label: "Menor Precio", icon: ArrowUp },
@@ -54,7 +53,7 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
   const [selectedStatus, setSelectedStatus] = useState("todos")
   const [selectedSort, setSelectedSort] = useState("default")
   const [searchTerm, setSearchTerm] = useState("")
-  const [showFilters, setShowFilters] = useState(false)
+  const [showFilters, setShowFilters] = useState(false) // CAMBIO: Inicia en false
 
   // Calcular conteos de categorías
   const categoriesWithCounts = useMemo(() => {
@@ -167,84 +166,83 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
               </Button>
             </div>
 
-            {/* Categorías principales */}
-            <div className="mb-6">
-              <div className="flex flex-wrap gap-2">
-                {categoriesWithCounts.map((category) => (
-                  <Button
-                    key={category.id}
-                    variant={selectedCategory === category.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedCategory(category.id)}
-                    className={`${
-                      selectedCategory === category.id
-                        ? "bg-black text-white hover:bg-gray-800"
-                        : "bg-white/90 hover:bg-gray-50"
-                    }`}
-                  >
-                    {category.label}
-                    <span className="ml-2 text-xs opacity-70">({category.count})</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Ordenamiento - Siempre visible */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Ordenar por:</label>
-              <div className="flex flex-wrap gap-2">
-                {SORT_OPTIONS.map((option) => {
-                  const Icon = option.icon
-                  return (
-                    <Button
-                      key={option.id}
-                      variant={selectedSort === option.id ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedSort(option.id)}
-                      className={`flex items-center gap-2 ${
-                        selectedSort === option.id
-                          ? "bg-black text-white hover:bg-gray-800"
-                          : "bg-white/90 hover:bg-gray-50"
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      {option.label}
-                    </Button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Filtros adicionales (colapsables) */}
+            {/* CAMBIO: Solo mostrar filtros cuando showFilters es true */}
             {showFilters && (
-              <div className="space-y-4 pt-4 border-t">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Filtro por estado */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
-                    <div className="flex flex-wrap gap-2">
-                      {STATUS_OPTIONS.map((status) => (
+              <div className="space-y-6">
+                {/* Categorías principales */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Categorías</label>
+                  <div className="flex flex-wrap gap-2">
+                    {categoriesWithCounts.map((category) => (
+                      <Button
+                        key={category.id}
+                        variant={selectedCategory === category.id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedCategory(category.id)}
+                        className={`${
+                          selectedCategory === category.id
+                            ? "bg-black text-white hover:bg-gray-800"
+                            : "bg-white/90 hover:bg-gray-50"
+                        }`}
+                      >
+                        {category.label}
+                        <span className="ml-2 text-xs opacity-70">({category.count})</span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ordenamiento */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Ordenar por</label>
+                  <div className="flex flex-wrap gap-2">
+                    {SORT_OPTIONS.map((option) => {
+                      const Icon = option.icon
+                      return (
                         <Button
-                          key={status.id}
-                          variant={selectedStatus === status.id ? "default" : "outline"}
+                          key={option.id}
+                          variant={selectedSort === option.id ? "default" : "outline"}
                           size="sm"
-                          onClick={() => setSelectedStatus(status.id)}
-                          className={`${
-                            selectedStatus === status.id
+                          onClick={() => setSelectedSort(option.id)}
+                          className={`flex items-center gap-2 ${
+                            selectedSort === option.id
                               ? "bg-black text-white hover:bg-gray-800"
                               : "bg-white/90 hover:bg-gray-50"
                           }`}
                         >
-                          {status.label}
+                          <Icon className="w-4 h-4" />
+                          {option.label}
                         </Button>
-                      ))}
-                    </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Filtro por estado */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Estado</label>
+                  <div className="flex flex-wrap gap-2">
+                    {STATUS_OPTIONS.map((status) => (
+                      <Button
+                        key={status.id}
+                        variant={selectedStatus === status.id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedStatus(status.id)}
+                        className={`${
+                          selectedStatus === status.id
+                            ? "bg-black text-white hover:bg-gray-800"
+                            : "bg-white/90 hover:bg-gray-50"
+                        }`}
+                      >
+                        {status.label}
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
                 {/* Botón limpiar filtros */}
                 {hasActiveFilters && (
-                  <div className="pt-4">
+                  <div className="pt-4 border-t">
                     <Button variant="ghost" onClick={clearFilters} className="text-gray-600 hover:text-gray-800">
                       Limpiar todos los filtros
                     </Button>

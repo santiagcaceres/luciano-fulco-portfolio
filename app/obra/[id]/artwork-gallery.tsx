@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
@@ -12,6 +14,7 @@ interface ArtworkGalleryProps {
 export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [imageKey, setImageKey] = useState(0)
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null)
 
   // Filtrar imágenes válidas y eliminar duplicados
   const validImages = images.filter((img, index, arr) => {
@@ -33,15 +36,25 @@ export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
     }
   }, [validImages.length, currentImageIndex])
 
+  // Función para obtener dimensiones de la imagen
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    setImageDimensions({
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+    })
+  }
+
   if (!validImages || validImages.length === 0) {
     console.log("No valid images found, showing placeholder")
     return (
-      <div className="relative w-full aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
+      <div className="relative w-full bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center min-h-[400px]">
         <Image
           src={`https://placehold.co/800x600/E5E7EB/374151/jpeg?text=${encodeURIComponent(title) || "Sin imagen"}`}
           alt={title}
-          fill
-          className="object-cover"
+          width={800}
+          height={600}
+          className="object-contain"
           sizes="(max-width: 768px) 100vw, 50vw"
         />
         <div className="absolute bottom-4 right-4 bg-black/80 text-white px-4 py-2 rounded-full text-sm font-medium">
@@ -54,11 +67,13 @@ export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % validImages.length)
     setImageKey((prev) => prev + 1) // Forzar recarga de la nueva imagen
+    setImageDimensions(null) // Reset dimensions
   }
 
   const prevImage = () => {
     setCurrentImageIndex((prev) => (prev - 1 + validImages.length) % validImages.length)
     setImageKey((prev) => prev + 1) // Forzar recarga de la nueva imagen
+    setImageDimensions(null) // Reset dimensions
   }
 
   const reloadImage = () => {
@@ -66,11 +81,19 @@ export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
     console.log("Recargando imagen:", validImages[currentImageIndex])
   }
 
+  // Calcular aspect ratio para mantener proporciones originales
+  const aspectRatio = imageDimensions ? imageDimensions.width / imageDimensions.height : 16 / 9
+
   return (
     <div className="w-full">
-      {/* Imagen principal - SIN ZOOM, CON RECARGA AL CLICK, SIN ICONO */}
+      {/* Imagen principal - TAMAÑO ORIGINAL SIN MÁRGENES FORZADOS */}
       <div
-        className="relative w-full aspect-[4/3] bg-gray-50 rounded-lg overflow-hidden shadow-xl group cursor-pointer"
+        className="relative w-full bg-gray-50 rounded-lg overflow-hidden shadow-xl group cursor-pointer"
+        style={{
+          aspectRatio: aspectRatio,
+          minHeight: "300px",
+          maxHeight: "80vh",
+        }}
         onClick={reloadImage}
       >
         <Image
@@ -78,17 +101,15 @@ export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
           src={validImages[currentImageIndex] || "/placeholder.svg"}
           alt={`${title} - Imagen ${currentImageIndex + 1}`}
           fill
-          className="object-cover"
+          className="object-contain" // CAMBIO CLAVE: object-contain en lugar de object-cover
           sizes="(max-width: 768px) 100vw, 50vw"
           priority
           quality={100}
           unoptimized={false}
+          onLoad={handleImageLoad}
           onError={(e) => {
             console.error("Error loading image:", validImages[currentImageIndex])
             e.currentTarget.src = `https://placehold.co/800x600/E5E7EB/374141/jpeg?text=Error+cargando+imagen`
-          }}
-          onLoad={() => {
-            console.log("Imagen cargada exitosamente:", validImages[currentImageIndex])
           }}
         />
 
@@ -129,6 +150,11 @@ export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
         {validImages.length > 1
           ? `Haz clic en la imagen para recargarla si no se ve correctamente • ${validImages.length} imágenes disponibles`
           : "Haz clic en la imagen para recargarla si no se ve correctamente"}
+        {imageDimensions && (
+          <span className="block text-xs text-gray-500 mt-1">
+            Dimensiones originales: {imageDimensions.width} × {imageDimensions.height}px
+          </span>
+        )}
       </div>
     </div>
   )
