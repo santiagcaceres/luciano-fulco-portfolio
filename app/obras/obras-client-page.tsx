@@ -7,7 +7,19 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Filter, ArrowUp, ArrowDown } from "lucide-react"
+import {
+  Search,
+  Filter,
+  ArrowUp,
+  ArrowDown,
+  Palette,
+  Brush,
+  Droplets,
+  PenTool,
+  Layers,
+  Pencil,
+  Shapes,
+} from "lucide-react"
 
 interface Artwork {
   id: string
@@ -26,14 +38,14 @@ interface ObrasClientPageProps {
 }
 
 const CATEGORIES = [
-  { id: "todos", label: "Todas las Obras", count: 0 },
-  { id: "oleos", label: "Óleos", count: 0 },
-  { id: "oleo-pastel", label: "Óleo Pastel", count: 0 },
-  { id: "acrilicos", label: "Acrílicos", count: 0 },
-  { id: "tecnica-mixta", label: "Técnica Mixta", count: 0 },
-  { id: "acuarelas", label: "Acuarelas", count: 0 },
-  { id: "dibujos", label: "Dibujos", count: 0 },
-  { id: "otros", label: "Otros", count: 0 },
+  { id: "todos", label: "Todas", count: 0, icon: Palette },
+  { id: "oleos", label: "Óleos", count: 0, icon: Brush },
+  { id: "oleo-pastel", label: "Óleo Pastel", count: 0, icon: Layers },
+  { id: "acrilicos", label: "Acrílicos", count: 0, icon: Palette },
+  { id: "tecnica-mixta", label: "Técnica Mixta", count: 0, icon: Shapes },
+  { id: "acuarelas", label: "Acuarelas", count: 0, icon: Droplets },
+  { id: "dibujos", label: "Dibujos", count: 0, icon: Pencil },
+  { id: "otros", label: "Otros", count: 0, icon: PenTool },
 ]
 
 const STATUS_OPTIONS = [
@@ -42,7 +54,6 @@ const STATUS_OPTIONS = [
   { id: "Vendida", label: "Vendidas" },
 ]
 
-// SOLO ORDENAMIENTO POR PRECIO - SIN FILTROS DE RANGO
 const SORT_OPTIONS = [
   { id: "default", label: "Orden por Defecto", icon: ArrowUp },
   { id: "price-asc", label: "Menor Precio", icon: ArrowUp },
@@ -54,7 +65,7 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
   const [selectedStatus, setSelectedStatus] = useState("todos")
   const [selectedSort, setSelectedSort] = useState("default")
   const [searchTerm, setSearchTerm] = useState("")
-  const [showFilters, setShowFilters] = useState(false) // INICIA EN FALSE - FILTROS OCULTOS
+  const [showFilters, setShowFilters] = useState(false)
 
   // Calcular conteos de categorías
   const categoriesWithCounts = useMemo(() => {
@@ -70,13 +81,8 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
   // Filtrar y ordenar obras
   const filteredAndSortedArtworks = useMemo(() => {
     const filtered = artworks.filter((artwork) => {
-      // Filtro por categoría
       const categoryMatch = selectedCategory === "todos" || artwork.category === selectedCategory
-
-      // Filtro por estado
       const statusMatch = selectedStatus === "todos" || artwork.status === selectedStatus
-
-      // Filtro por búsqueda
       const searchMatch =
         searchTerm === "" ||
         artwork.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -85,7 +91,6 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
       return categoryMatch && statusMatch && searchMatch
     })
 
-    // Aplicar ordenamiento
     switch (selectedSort) {
       case "price-asc":
         return [...filtered].sort((a, b) => a.price - b.price)
@@ -145,57 +150,65 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
           </p>
         </div>
 
-        {/* SOLO BÚSQUEDA Y BOTÓN DE FILTROS - SIN FILTROS VISIBLES */}
-        <div className="bg-white/95 backdrop-blur-sm border-b shadow-sm mb-8">
-          <div className="p-4 md:p-6">
-            {/* Barra de búsqueda y toggle de filtros */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        {/* FILTROS MINIMALISTAS */}
+        <div className="bg-white/95 backdrop-blur-sm border shadow-sm rounded-lg mb-8">
+          <div className="p-4">
+            {/* Barra de búsqueda */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
                   type="text"
-                  placeholder="Buscar obras por título o descripción..."
+                  placeholder="Buscar obras..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-white/90"
+                  className="pl-9 h-9 text-sm"
                 />
               </div>
-              <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="sm:w-auto bg-white/90">
-                <Filter className="w-4 h-4 mr-2" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="h-9 px-3 text-sm"
+              >
+                <Filter className="w-4 h-4 mr-1" />
                 Filtros
-                {hasActiveFilters && <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full"></span>}
+                {(selectedStatus !== "todos" || selectedSort !== "default") && (
+                  <span className="ml-1 w-1.5 h-1.5 bg-black rounded-full"></span>
+                )}
               </Button>
             </div>
 
-            {/* FILTROS SOLO SE MUESTRAN SI showFilters ES TRUE */}
-            {showFilters && (
-              <div className="space-y-6 border-t pt-6">
-                {/* Categorías principales */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Categorías</label>
-                  <div className="flex flex-wrap gap-2">
-                    {categoriesWithCounts.map((category) => (
-                      <Button
-                        key={category.id}
-                        variant={selectedCategory === category.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedCategory(category.id)}
-                        className={`${
-                          selectedCategory === category.id
-                            ? "bg-black text-white hover:bg-gray-800"
-                            : "bg-white/90 hover:bg-gray-50"
-                        }`}
-                      >
-                        {category.label}
-                        <span className="ml-2 text-xs opacity-70">({category.count})</span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+            {/* CATEGORÍAS MINIMALISTAS - SIEMPRE VISIBLES */}
+            <div className="flex flex-wrap gap-2">
+              {categoriesWithCounts.map((category) => {
+                const Icon = category.icon
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      selectedCategory === category.id
+                        ? "bg-black text-white"
+                        : "bg-white border border-gray-200 text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {category.label}
+                    <span className={`${selectedCategory === category.id ? "text-white/70" : "text-gray-500"}`}>
+                      ({category.count})
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
 
-                {/* SOLO ORDENAMIENTO POR PRECIO - SIN FILTROS DE RANGO */}
+            {/* FILTROS ADICIONALES */}
+            {showFilters && (
+              <div className="mt-4 pt-4 border-t space-y-3">
+                {/* Ordenamiento */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Ordenar por precio</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Ordenar</label>
                   <div className="flex flex-wrap gap-2">
                     {SORT_OPTIONS.map((option) => {
                       const Icon = option.icon
@@ -205,13 +218,11 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
                           variant={selectedSort === option.id ? "default" : "outline"}
                           size="sm"
                           onClick={() => setSelectedSort(option.id)}
-                          className={`flex items-center gap-2 ${
-                            selectedSort === option.id
-                              ? "bg-black text-white hover:bg-gray-800"
-                              : "bg-white/90 hover:bg-gray-50"
+                          className={`h-8 px-3 text-xs ${
+                            selectedSort === option.id ? "bg-black text-white hover:bg-gray-800" : "hover:bg-gray-50"
                           }`}
                         >
-                          <Icon className="w-4 h-4" />
+                          <Icon className="w-3 h-3 mr-1" />
                           {option.label}
                         </Button>
                       )
@@ -219,9 +230,9 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
                   </div>
                 </div>
 
-                {/* Filtro por estado */}
+                {/* Estado */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Estado</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Estado</label>
                   <div className="flex flex-wrap gap-2">
                     {STATUS_OPTIONS.map((status) => (
                       <Button
@@ -229,10 +240,8 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
                         variant={selectedStatus === status.id ? "default" : "outline"}
                         size="sm"
                         onClick={() => setSelectedStatus(status.id)}
-                        className={`${
-                          selectedStatus === status.id
-                            ? "bg-black text-white hover:bg-gray-800"
-                            : "bg-white/90 hover:bg-gray-50"
+                        className={`h-8 px-3 text-xs ${
+                          selectedStatus === status.id ? "bg-black text-white hover:bg-gray-800" : "hover:bg-gray-50"
                         }`}
                       >
                         {status.label}
@@ -241,11 +250,16 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
                   </div>
                 </div>
 
-                {/* Botón limpiar filtros */}
+                {/* Limpiar filtros */}
                 {hasActiveFilters && (
-                  <div className="pt-4 border-t">
-                    <Button variant="ghost" onClick={clearFilters} className="text-gray-600 hover:text-gray-800">
-                      Limpiar todos los filtros
+                  <div className="pt-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearFilters}
+                      className="h-8 px-3 text-xs text-gray-600 hover:text-gray-800"
+                    >
+                      Limpiar filtros
                     </Button>
                   </div>
                 )}
@@ -256,13 +270,13 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
 
         {/* Resultados */}
         <div className="mb-6">
-          <p className="text-gray-600">
+          <p className="text-sm text-gray-600">
             {filteredAndSortedArtworks.length === 0
-              ? "No se encontraron obras con los filtros seleccionados"
-              : `Mostrando ${filteredAndSortedArtworks.length} de ${artworks.length} obras`}
+              ? "No se encontraron obras"
+              : `${filteredAndSortedArtworks.length} de ${artworks.length} obras`}
             {selectedSort !== "default" && (
-              <span className="ml-2 text-sm text-gray-500">
-                • Ordenado por {SORT_OPTIONS.find((opt) => opt.id === selectedSort)?.label.toLowerCase()}
+              <span className="ml-2 text-xs text-gray-500">
+                • {SORT_OPTIONS.find((opt) => opt.id === selectedSort)?.label}
               </span>
             )}
           </p>
@@ -271,10 +285,10 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
         {/* Grid de obras */}
         {filteredAndSortedArtworks.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-xl text-gray-500 mb-4">No se encontraron obras</p>
-            <p className="text-gray-400 mb-6">Intenta ajustar los filtros o términos de búsqueda</p>
+            <p className="text-lg text-gray-500 mb-2">No se encontraron obras</p>
+            <p className="text-sm text-gray-400 mb-4">Intenta ajustar los filtros</p>
             {hasActiveFilters && (
-              <Button onClick={clearFilters} variant="outline">
+              <Button onClick={clearFilters} variant="outline" size="sm">
                 Ver todas las obras
               </Button>
             )}
