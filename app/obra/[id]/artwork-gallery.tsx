@@ -1,134 +1,136 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 interface ArtworkGalleryProps {
   images: string[]
   title: string
 }
 
-export function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
+export default function ArtworkGallery({ images, title }: ArtworkGalleryProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [imageKey, setImageKey] = useState(0)
 
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % images.length)
-  }
+  // Filtrar imágenes válidas y eliminar duplicados
+  const validImages = images.filter((img, index, arr) => {
+    const isValid = img && img.trim() !== "" && img !== "null" && img !== "undefined"
+    const isUnique = arr.indexOf(img) === index
+    return isValid && isUnique
+  })
 
-  const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
-  }
+  // Debug log
+  useEffect(() => {
+    console.log("ArtworkGallery - Raw images:", images)
+    console.log("ArtworkGallery - Valid images:", validImages)
+  }, [images, validImages])
 
-  const goToImage = (index: number) => {
-    setCurrentImageIndex(index)
-  }
+  // Reset index if it's out of bounds
+  useEffect(() => {
+    if (currentImageIndex >= validImages.length && validImages.length > 0) {
+      setCurrentImageIndex(0)
+    }
+  }, [validImages.length, currentImageIndex])
 
-  const handleImageClick = () => {
-    console.log("🔄 Reloading image...")
-    setImageKey((prev) => prev + 1)
-  }
-
-  if (!images || images.length === 0) {
+  if (!validImages || validImages.length === 0) {
+    console.log("No valid images found, showing placeholder")
     return (
-      <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
-        <p className="text-gray-500">Sin imagen disponible</p>
+      <div className="relative w-full bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center min-h-[400px]">
+        <Image
+          src={`https://placehold.co/800x600/E5E7EB/374151/jpeg?text=${encodeURIComponent(title) || "Sin imagen"}`}
+          alt={title}
+          width={800}
+          height={600}
+          className="object-contain max-w-full max-h-full"
+          sizes="(max-width: 768px) 100vw, 50vw"
+        />
+        <div className="absolute bottom-4 right-4 bg-black/80 text-white px-4 py-2 rounded-full text-sm font-medium">
+          Sin imágenes
+        </div>
       </div>
     )
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Imagen principal */}
-      <div className="relative group">
-        <div
-          className="relative w-full bg-gray-100 rounded-lg overflow-hidden cursor-pointer"
-          onClick={handleImageClick}
-          style={{ aspectRatio: "auto" }}
-        >
-          <Image
-            key={`${currentImageIndex}-${imageKey}`}
-            src={images[currentImageIndex] || "/placeholder.svg"}
-            alt={`${title} - Imagen ${currentImageIndex + 1}`}
-            width={800}
-            height={600}
-            className="w-full h-auto object-contain"
-            sizes="(max-width: 768px) 100vw, 50vw"
-            priority={currentImageIndex === 0}
-            onError={(e) => {
-              console.error("Error loading image:", images[currentImageIndex])
-              e.currentTarget.src = `https://placehold.co/800x600/E5E7EB/374151/jpeg?text=Error+cargando+imagen`
-            }}
-          />
-        </div>
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % validImages.length)
+    setImageKey((prev) => prev + 1) // Forzar recarga de la nueva imagen
+  }
 
-        {/* Controles de navegación */}
-        {images.length > 1 && (
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + validImages.length) % validImages.length)
+    setImageKey((prev) => prev + 1) // Forzar recarga de la nueva imagen
+  }
+
+  const reloadImage = () => {
+    setImageKey((prev) => prev + 1) // Incrementar key para forzar recarga
+    console.log("Recargando imagen:", validImages[currentImageIndex])
+  }
+
+  return (
+    <div className="w-full">
+      {/* Imagen principal - TAMAÑO ORIGINAL SIN CONTENEDOR FIJO */}
+      <div
+        className="relative w-full group cursor-pointer bg-gray-50 rounded-lg overflow-hidden shadow-xl"
+        onClick={reloadImage}
+      >
+        <Image
+          key={`${currentImageIndex}-${imageKey}`} // Key única para forzar recarga
+          src={validImages[currentImageIndex] || "/placeholder.svg"}
+          alt={`${title} - Imagen ${currentImageIndex + 1}`}
+          width={1200} // Ancho máximo
+          height={800} // Alto máximo
+          className="w-full h-auto object-contain max-w-full" // CLAVE: h-auto + object-contain + max-w-full
+          sizes="(max-width: 768px) 100vw, 50vw"
+          priority
+          quality={100}
+          unoptimized={false}
+          onError={(e) => {
+            console.error("Error loading image:", validImages[currentImageIndex])
+            e.currentTarget.src = `https://placehold.co/800x600/E5E7EB/374141/jpeg?text=Error+cargando+imagen`
+          }}
+          onLoad={() => {
+            console.log("Imagen cargada exitosamente:", validImages[currentImageIndex])
+          }}
+        />
+
+        {/* Navegación con flechas solo si hay más de 1 imagen */}
+        {validImages.length > 1 && (
           <>
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={prevImage}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                prevImage()
+              }}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition-all duration-200 shadow-lg opacity-0 group-hover:opacity-100"
+              aria-label="Imagen anterior"
             >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={nextImage}
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                nextImage()
+              }}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition-all duration-200 shadow-lg opacity-0 group-hover:opacity-100"
+              aria-label="Imagen siguiente"
             >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+              <ChevronRight className="w-6 h-6" />
+            </button>
           </>
         )}
 
-        {/* Indicador de imagen actual */}
-        {images.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
-            {currentImageIndex + 1} de {images.length}
-          </div>
-        )}
+        {/* Contador de imágenes */}
+        <div className="absolute bottom-4 right-4 bg-black/80 text-white px-4 py-2 rounded-full text-sm font-medium">
+          {validImages.length > 1 ? `${currentImageIndex + 1} / ${validImages.length}` : "Vista completa"}
+        </div>
       </div>
 
-      {/* Miniaturas */}
-      {images.length > 1 && (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-          {images.map((image, index) => (
-            <button
-              key={index}
-              onClick={() => goToImage(index)}
-              className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                index === currentImageIndex
-                  ? "border-blue-500 ring-2 ring-blue-200"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <Image
-                src={image || "/placeholder.svg"}
-                alt={`${title} - Miniatura ${index + 1}`}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 25vw, 20vw"
-                onError={(e) => {
-                  e.currentTarget.src = `https://placehold.co/200x200/E5E7EB/374151/jpeg?text=Error`
-                }}
-              />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Instrucciones */}
-      <div className="text-center">
-        <p className="text-sm text-gray-600">
-          {images.length > 1
-            ? "Haz clic en las miniaturas para cambiar de imagen • Clic en la imagen principal para recargar"
-            : "Haz clic en la imagen para recargar si no se muestra correctamente"}
-        </p>
+      {/* Información */}
+      <div className="mt-4 text-sm text-gray-600 text-center bg-gray-50 p-3 rounded-lg">
+        {validImages.length > 1
+          ? `Haz clic en la imagen para recargarla si no se ve correctamente • ${validImages.length} imágenes disponibles`
+          : "Haz clic en la imagen para recargarla si no se ve correctamente"}
       </div>
     </div>
   )

@@ -1,230 +1,282 @@
 "use client"
-import { useState, useRef, useEffect } from "react"
-import { Trash2, Upload, AlertCircle, ArrowLeft, ArrowRight, Star, Loader2 } from "lucide-react"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { compressImages } from "@/lib/image-compression"
 
-interface ImageObject {
-  file: File
-  previewUrl: string
-  originalSize?: number
-  compressedSize?: number
-}
+import { useState, useCallback } from "react"
+import { Button } from "@/components/ui/button"
+import { Upload, X, ArrowLeft, ArrowRight, Star } from "lucide-react"
+import { compressImage } from "@/lib/image-compression"
+import Image from "next/image"
 
 interface SimpleImageUploadProps {
   onImagesChange: (files: File[]) => void
   maxImages?: number
-  className?: string
 }
 
-export function SimpleImageUpload({ onImagesChange, maxImages = 3, className = "" }: SimpleImageUploadProps) {
-  const [images, setImages] = useState<ImageObject[]>([])
-  const [error, setError] = useState<string>("")
-  const [isCompressing, setIsCompressing] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+export function SimpleImageUpload({ onImagesChange, maxImages = 3 }: SimpleImageUploadProps) {
+  const [images, setImages] = useState<File[]>([])
+  const [previews, setPreviews] = useState<string[]>([])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingIndex, setProcessingIndex] = useState<number | null>(null)
 
-  // Limpiar los object URLs cuando el componente se desmonte para evitar fugas de memoria
-  useEffect(() => {
-    return () => {
-      images.forEach((image) => URL.revokeObjectURL(image.previewUrl))
-    }
-  }, [images])
-
-  const handleFileSelection = async (selectedFiles: FileList | null) => {
-    if (!selectedFiles) return
-    setError("")
-
-    const filesArray = Array.from(selectedFiles)
-
-    if (filesArray.length > maxImages) {
-      setError(`No puedes seleccionar más de ${maxImages} imágenes.`)
-      onImagesChange([]) // Notificar que la selección es inválida
-      return
-    }
-
-    // Limpiar URLs viejas antes de crear nuevas
-    images.forEach((image) => URL.revokeObjectURL(image.previewUrl))
-
-    try {
-      setIsCompressing(true)
-
-      // Comprimir imágenes si es necesario
-      console.log("🗜️ Iniciando compresión de imágenes...")
-      const compressedFiles = await compressImages(filesArray)
-
-      const newImageObjects: ImageObject[] = compressedFiles.map((file, index) => ({
-        file,
-        previewUrl: URL.createObjectURL(file),
-        originalSize: filesArray[index].size,
-        compressedSize: file.size,
-      }))
-
-      setImages(newImageObjects)
-      onImagesChange(newImageObjects.map((img) => img.file))
-
-      console.log("✅ Compresión completada")
-    } catch (error) {
-      console.error("Error durante la compresión:", error)
-      setError("Error al procesar las imágenes. Inténtalo de nuevo.")
-    } finally {
-      setIsCompressing(false)
-    }
+  const createPreview = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (e) => resolve(e.target?.result as string)
+      reader.readAsDataURL(file)
+    })
   }
 
-  const removeImage = (indexToRemove: number) => {
-    const imageToRemove = images[indexToRemove]
-    URL.revokeObjectURL(imageToRemove.previewUrl)
+  const handleFileSelect = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return
 
-    const newImages = images.filter((_, index) => index !== indexToRemove)
-    setImages(newImages)
-    onImagesChange(newImages.map((img) => img.file))
-    setError("") // Limpiar error al remover imagen
-  }
+      setIsProcessing(true)
+      const newImages: File[] = []
+      const newPreviews: string[] = []
 
-  const moveImage = (index: number, direction: "left" | "right") => {
-    const newIndex = direction === "left" ? index - 1 : index + 1
-    if (newIndex < 0 || newIndex >= images.length) return
+      try {
+        for (let i = 0; i < Math.min(files.length, maxImages - images.length); i++) {
+          const file = files[i]
 
-    const newImages = [...images]
-    // Intercambiar elementos
-    ;[newImages[index], newImages[newIndex]] = [newImages[newIndex], newImages[index]]
+          // Validar tipo de archivo
+          if (!file.type.startsWith("image/")) {
+            console.warn(`Archivo ${file.name} no es una imagen válida`)
+            continue
+          }
 
-    setImages(newImages)
-    onImagesChange(newImages.map((img) => img.file))
-  }
+          // Validar tamaño (máximo 50MB)
+          if (file.size > 50 * 1024 * 1024) {
+            console.warn(`Archivo ${file.name} es demasiado grande (máximo 50MB)`)
+            continue
+          }
+
+          setProcessingIndex(i)
+
+          try {
+            // Comprimir imagen
+            const compressedFile = await compressImage(file)
+
+            // Crear preview
+            const preview = await createPreview(compressedFile)
+
+            newImages.push(compressedFile)
+            newPreviews.push(preview)
+          } catch (error) {
+            console.error(`Error procesando ${file.name}:`, error)
+            // Si falla la compresión, usar archivo original
+            const preview = await createPreview(file)
+            newImages.push(file)
+            newPreviews.push(preview)
+          }
+        }
+
+        const updatedImages = [...images, ...newImages]
+        const updatedPreviews = [...previews, ...newPreviews]
+
+        setImages(updatedImages)
+        setPreviews(updatedPreviews)
+        onImagesChange(updatedImages)
+      } catch (error) {
+        console.error("Error procesando imágenes:", error)
+      } finally {
+        setIsProcessing(false)
+        setProcessingIndex(null)
+      }
+    },
+    [images, previews, maxImages, onImagesChange],
+  )
+
+  const removeImage = useCallback(
+    (index: number) => {
+      const updatedImages = images.filter((_, i) => i !== index)
+      const updatedPreviews = previews.filter((_, i) => i !== index)
+
+      setImages(updatedImages)
+      setPreviews(updatedPreviews)
+      onImagesChange(updatedImages)
+    },
+    [images, previews, onImagesChange],
+  )
+
+  const moveImage = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (toIndex < 0 || toIndex >= images.length) return
+
+      const newImages = [...images]
+      const newPreviews = [...previews]
+
+      // Intercambiar elementos
+      const tempImage = newImages[fromIndex]
+      const tempPreview = newPreviews[fromIndex]
+
+      newImages[fromIndex] = newImages[toIndex]
+      newPreviews[fromIndex] = newPreviews[toIndex]
+
+      newImages[toIndex] = tempImage
+      newPreviews[toIndex] = tempPreview
+
+      setImages(newImages)
+      setPreviews(newPreviews)
+      onImagesChange(newImages)
+    },
+    [images, previews, onImagesChange],
+  )
+
+  const makeMainImage = useCallback(
+    (index: number) => {
+      if (index === 0) return // Ya es la principal
+
+      const newImages = [...images]
+      const newPreviews = [...previews]
+
+      // Mover la imagen seleccionada al primer lugar
+      const selectedImage = newImages.splice(index, 1)[0]
+      const selectedPreview = newPreviews.splice(index, 1)[0]
+
+      newImages.unshift(selectedImage)
+      newPreviews.unshift(selectedPreview)
+
+      setImages(newImages)
+      setPreviews(newPreviews)
+      onImagesChange(newImages)
+    },
+    [images, previews, onImagesChange],
+  )
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={(e) => handleFileSelection(e.target.files)}
-        className="hidden"
-        disabled={isCompressing}
-      />
-
-      {/* Área de Carga */}
-      <div
-        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-          isCompressing
-            ? "border-blue-300 bg-blue-50 cursor-not-allowed"
-            : "cursor-pointer hover:border-gray-400 hover:bg-gray-50"
-        }`}
-        onClick={() => !isCompressing && fileInputRef.current?.click()}
-      >
-        {isCompressing ? (
-          <>
-            <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-2 animate-spin" />
-            <p className="text-sm font-medium text-blue-700 mb-1">Optimizando imágenes...</p>
-            <p className="text-xs text-blue-600">Comprimiendo para mejorar la velocidad de carga</p>
-          </>
-        ) : (
-          <>
-            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm font-medium text-gray-700 mb-1">
-              {images.length > 0 ? "Cambiar Selección" : "Seleccionar Imágenes"}
-            </p>
-            <p className="text-xs text-gray-400 mb-4">Cualquier formato • Optimización automática</p>
-            <p className="text-xs text-gray-500">
-              {images.length} de {maxImages} imágenes seleccionadas
-            </p>
-          </>
-        )}
+    <div className="space-y-4">
+      {/* Área de subida */}
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={(e) => handleFileSelect(e.target.files)}
+          className="hidden"
+          id="image-upload"
+          disabled={isProcessing || images.length >= maxImages}
+        />
+        <label htmlFor="image-upload" className="cursor-pointer">
+          <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <p className="text-sm text-gray-600 mb-2">
+            {isProcessing ? "Procesando imágenes..." : "Haz clic para seleccionar imágenes"}
+          </p>
+          <p className="text-xs text-gray-500">
+            {images.length}/{maxImages} imágenes • JPG, PNG, WebP, GIF
+          </p>
+        </label>
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span className="text-sm">{error}</span>
-        </div>
-      )}
-
-      {/* Vistas Previas y Controles */}
-      {images.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-700">Orden de las imágenes:</p>
-          <div className="grid grid-cols-1 gap-3">
-            {images.map((image, index) => (
-              <div key={image.previewUrl} className="flex items-center gap-3 p-3 border rounded-lg bg-white shadow-sm">
-                <Image
-                  src={image.previewUrl || "/placeholder.svg"}
-                  alt={`Preview ${index + 1}`}
-                  width={80}
-                  height={80}
-                  className="w-16 h-16 object-cover rounded-md border flex-shrink-0"
-                />
-                <div className="flex-grow min-w-0 space-y-1">
-                  <p className="text-xs font-medium text-gray-800 truncate" title={image.file.name}>
-                    {image.file.name}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span>{`${(image.file.size / 1024 / 1024).toFixed(2)} MB`}</span>
-                    {image.originalSize && image.originalSize !== image.compressedSize && (
-                      <span className="text-green-600">
-                        (optimizada desde {(image.originalSize / 1024 / 1024).toFixed(2)} MB)
-                      </span>
-                    )}
-                  </div>
-                  {index === 0 && (
-                    <div className="flex items-center gap-1 text-xs font-semibold text-amber-600">
-                      <Star className="w-3 h-3 fill-current" />
-                      <span>Principal</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => moveImage(index, "left")}
-                    disabled={index === 0 || isCompressing}
-                    className="h-7 w-7"
-                    title="Mover a la izquierda"
-                  >
-                    <ArrowLeft className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => moveImage(index, "right")}
-                    disabled={index === images.length - 1 || isCompressing}
-                    className="h-7 w-7"
-                    title="Mover a la derecha"
-                  >
-                    <ArrowRight className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => removeImage(index)}
-                    disabled={isCompressing}
-                    className="h-7 w-7"
-                    title="Eliminar imagen"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+      {/* Indicador de procesamiento */}
+      {isProcessing && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+            <p className="text-sm text-blue-800">
+              Optimizando imagen {processingIndex !== null ? processingIndex + 1 : ""}...
+            </p>
           </div>
         </div>
       )}
 
-      {/* Información sobre optimización */}
+      {/* Lista de imágenes */}
+      {images.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-gray-900">Imágenes seleccionadas</h4>
+            <p className="text-xs text-gray-500">La primera imagen será la principal</p>
+          </div>
+
+          {images.map((file, index) => (
+            <div key={`${file.name}-${index}`} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+              {/* Preview de imagen */}
+              <div className="relative w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                {previews[index] && (
+                  <Image
+                    src={previews[index] || "/placeholder.svg"}
+                    alt={`Preview ${index + 1}`}
+                    fill
+                    className="object-cover"
+                  />
+                )}
+                {index === 0 && (
+                  <div className="absolute top-1 left-1">
+                    <Star className="w-3 h-3 text-blue-600 fill-current" />
+                  </div>
+                )}
+              </div>
+
+              {/* Información del archivo */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {file.name}
+                  {index === 0 && <span className="text-blue-600 ml-2">(Principal)</span>}
+                </p>
+                <p className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+              </div>
+
+              {/* Controles */}
+              <div className="flex items-center space-x-1">
+                {/* Botón para hacer principal */}
+                {index > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => makeMainImage(index)}
+                    className="h-8 px-2 text-xs"
+                  >
+                    Principal
+                  </Button>
+                )}
+
+                {/* Flechas de reordenamiento */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => moveImage(index, index - 1)}
+                  disabled={index === 0}
+                  className="h-8 w-8 p-0"
+                >
+                  <ArrowLeft className="w-3 h-3" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => moveImage(index, index + 1)}
+                  disabled={index === images.length - 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <ArrowRight className="w-3 h-3" />
+                </Button>
+
+                {/* Botón eliminar */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeImage(index)}
+                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Información adicional */}
       {images.length > 0 && (
         <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-          <p className="font-medium mb-1">ℹ️ Optimización automática:</p>
+          <p className="font-medium mb-1">ℹ️ Información:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li>Las imágenes grandes se comprimen automáticamente</li>
-            <li>Se mantiene alta calidad visual</li>
-            <li>Mejora la velocidad de carga del sitio</li>
-            <li>Tamaño total: {(images.reduce((acc, img) => acc + img.file.size, 0) / 1024 / 1024).toFixed(2)} MB</li>
+            <li>La primera imagen se usa como imagen principal</li>
+            <li>Usa las flechas ← → para reordenar</li>
+            <li>Usa "Principal" para mover cualquier imagen al primer lugar</li>
+            <li>Las imágenes se optimizan automáticamente</li>
           </ul>
         </div>
       )}

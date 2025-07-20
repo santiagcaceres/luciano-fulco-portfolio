@@ -345,19 +345,6 @@ export default function NuevaObra() {
                   </p>
                 </div>
               )}
-
-              {/* Información sobre optimización */}
-              <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-                <p className="font-medium mb-1">ℹ️ Optimización automática:</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Las imágenes grandes se comprimen automáticamente</li>
-                  <li>Se mantiene alta calidad visual</li>
-                  <li>Mejora la velocidad de carga del sitio</li>
-                  <li>
-                    Tamaño total: {(selectedImages.reduce((acc, img) => acc + img.size, 0) / 1024 / 1024).toFixed(2)} MB
-                  </li>
-                </ul>
-              </div>
             </div>
           </div>
         </form>
