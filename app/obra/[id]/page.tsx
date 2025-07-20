@@ -85,11 +85,11 @@ export default async function ArtworkDetailPage({ params }: PageProps) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-12">
-          <div className="space-y-3 md:space-y-4">
-            {/* Galería de imágenes con navegación */}
+          <div className="w-full">
+            {/* Galería de imágenes con navegación - SIN SPACE-Y */}
             <ArtworkGallery images={galleryImages} title={artwork.title} />
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 mt-4">
               <Badge className="capitalize text-xs md:text-sm">{artwork.category}</Badge>
               {artwork.subcategory && (
                 <Badge variant="outline" className="capitalize bg-white/90 text-xs md:text-sm">
@@ -139,9 +139,32 @@ export default async function ArtworkDetailPage({ params }: PageProps) {
               </CardContent>
             </Card>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-lg">
-              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Sobre esta obra</h3>
-              <p className="text-sm md:text-base text-gray-600 leading-relaxed">{artwork.detailed_description}</p>
+            {/* MOSTRAR AMBAS DESCRIPCIONES */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-lg space-y-4">
+              <h3 className="text-lg md:text-xl font-semibold text-gray-900">Sobre esta obra</h3>
+
+              {/* Descripción corta */}
+              {artwork.description && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Descripción</h4>
+                  <p className="text-sm md:text-base text-gray-600 leading-relaxed">{artwork.description}</p>
+                </div>
+              )}
+
+              {/* Descripción detallada */}
+              {artwork.detailed_description && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Descripción Detallada</h4>
+                  <p className="text-sm md:text-base text-gray-600 leading-relaxed">{artwork.detailed_description}</p>
+                </div>
+              )}
+
+              {/* Si no hay ninguna descripción */}
+              {!artwork.description && !artwork.detailed_description && (
+                <p className="text-sm md:text-base text-gray-500 italic">
+                  No hay descripción disponible para esta obra.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
