@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Mail, Calendar, Palette, Ruler, MessageCircle } from "lucide-react"
+import { ArrowLeft, Mail, Calendar, Palette, Ruler, MessageCircle, Award } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -134,6 +134,14 @@ export default async function ArtworkDetailPage({ params }: PageProps) {
                         Vendida
                       </div>
                     )}
+                  </div>
+                  {/* NUEVO: Certificado de Autenticidad */}
+                  <div className="flex items-center gap-2 md:gap-3 pt-2 border-t border-gray-200">
+                    <Award className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
+                    <span className="text-sm md:text-base text-gray-600">
+                      <span className="font-medium text-amber-700">Certificado de Autenticidad:</span> Obra original
+                      realizada por Luciano Fulco
+                    </span>
                   </div>
                 </div>
               </CardContent>

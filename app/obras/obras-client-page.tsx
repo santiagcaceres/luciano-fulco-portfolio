@@ -19,6 +19,7 @@ import {
   Layers,
   Pencil,
   Shapes,
+  Calendar,
 } from "lucide-react"
 
 interface Artwork {
@@ -30,6 +31,7 @@ interface Artwork {
   description: string
   status: string
   main_image_url?: string
+  year?: number
   created_at: string
 }
 
@@ -64,8 +66,19 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
   const [selectedCategory, setSelectedCategory] = useState("todos")
   const [selectedStatus, setSelectedStatus] = useState("todos")
   const [selectedSort, setSelectedSort] = useState("default")
+  const [selectedYear, setSelectedYear] = useState("todos")
   const [searchTerm, setSearchTerm] = useState("")
   const [showFilters, setShowFilters] = useState(false)
+
+  // Obtener años únicos de las obras
+  const availableYears = useMemo(() => {
+    const years = artworks
+      .map((artwork) => artwork.year)
+      .filter((year): year is number => year !== undefined && year !== null)
+      .sort((a, b) => b - a) // Ordenar de más reciente a más antiguo
+
+    return Array.from(new Set(years))
+  }, [artworks])
 
   // Calcular conteos de categorías
   const categoriesWithCounts = useMemo(() => {
@@ -83,12 +96,13 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
     const filtered = artworks.filter((artwork) => {
       const categoryMatch = selectedCategory === "todos" || artwork.category === selectedCategory
       const statusMatch = selectedStatus === "todos" || artwork.status === selectedStatus
+      const yearMatch = selectedYear === "todos" || artwork.year === Number(selectedYear)
       const searchMatch =
         searchTerm === "" ||
         artwork.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         artwork.description.toLowerCase().includes(searchTerm.toLowerCase())
 
-      return categoryMatch && statusMatch && searchMatch
+      return categoryMatch && statusMatch && yearMatch && searchMatch
     })
 
     switch (selectedSort) {
@@ -99,17 +113,22 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
       default:
         return filtered
     }
-  }, [artworks, selectedCategory, selectedStatus, searchTerm, selectedSort])
+  }, [artworks, selectedCategory, selectedStatus, selectedYear, searchTerm, selectedSort])
 
   const clearFilters = () => {
     setSelectedCategory("todos")
     setSelectedStatus("todos")
     setSelectedSort("default")
+    setSelectedYear("todos")
     setSearchTerm("")
   }
 
   const hasActiveFilters =
-    selectedCategory !== "todos" || selectedStatus !== "todos" || selectedSort !== "default" || searchTerm !== ""
+    selectedCategory !== "todos" ||
+    selectedStatus !== "todos" ||
+    selectedSort !== "default" ||
+    selectedYear !== "todos" ||
+    searchTerm !== ""
 
   return (
     <div className="min-h-screen relative">
@@ -173,7 +192,7 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
               >
                 <Filter className="w-4 h-4 mr-1" />
                 Filtros
-                {(selectedStatus !== "todos" || selectedSort !== "default") && (
+                {(selectedStatus !== "todos" || selectedSort !== "default" || selectedYear !== "todos") && (
                   <span className="ml-1 w-1.5 h-1.5 bg-black rounded-full"></span>
                 )}
               </Button>
@@ -206,6 +225,41 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
             {/* FILTROS ADICIONALES */}
             {showFilters && (
               <div className="mt-4 pt-4 border-t space-y-3">
+                {/* Filtro por Año */}
+                {availableYears.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-2">Año</label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={selectedYear === "todos" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedYear("todos")}
+                        className={`h-8 px-3 text-xs ${
+                          selectedYear === "todos" ? "bg-black text-white hover:bg-gray-800" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <Calendar className="w-3 h-3 mr-1" />
+                        Todos los años
+                      </Button>
+                      {availableYears.map((year) => (
+                        <Button
+                          key={year}
+                          variant={selectedYear === year.toString() ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedYear(year.toString())}
+                          className={`h-8 px-3 text-xs ${
+                            selectedYear === year.toString()
+                              ? "bg-black text-white hover:bg-gray-800"
+                              : "hover:bg-gray-50"
+                          }`}
+                        >
+                          {year}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Ordenamiento */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-2">Ordenar</label>
@@ -279,6 +333,7 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
                 • {SORT_OPTIONS.find((opt) => opt.id === selectedSort)?.label}
               </span>
             )}
+            {selectedYear !== "todos" && <span className="ml-2 text-xs text-gray-500">• Año {selectedYear}</span>}
           </p>
         </div>
 
