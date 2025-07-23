@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
+import GoogleAnalytics from "@/components/google-analytics"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const playfairDisplay = Playfair_Display({
@@ -110,6 +111,7 @@ export default function RootLayout({
             {children}
             <Toaster />
             <Analytics />
+            <GoogleAnalytics />
           </ThemeProvider>
         </Suspense>
       </body>

@@ -21,6 +21,7 @@ import {
   Shapes,
   Calendar,
 } from "lucide-react"
+import { trackCategoryFilter, trackSearch } from "@/lib/gtag"
 
 interface Artwork {
   id: string
@@ -130,6 +131,21 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
     selectedYear !== "todos" ||
     searchTerm !== ""
 
+  // Handle category filter with analytics
+  const handleCategoryFilter = (categoryId: string) => {
+    setSelectedCategory(categoryId)
+    trackCategoryFilter(categoryId)
+  }
+
+  // Handle search with analytics
+  const handleSearch = (term: string) => {
+    setSearchTerm(term)
+    if (term.length > 2) {
+      // Only track searches with 3+ characters
+      trackSearch(term)
+    }
+  }
+
   return (
     <div className="min-h-screen relative">
       {/* Fondo artístico global */}
@@ -180,7 +196,7 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
                   type="text"
                   placeholder="Buscar obras..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleSearch(e.target.value)}
                   className="pl-9 h-9 text-sm"
                 />
               </div>
@@ -205,7 +221,7 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
                 return (
                   <button
                     key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
+                    onClick={() => handleCategoryFilter(category.id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                       selectedCategory === category.id
                         ? "bg-black text-white"
