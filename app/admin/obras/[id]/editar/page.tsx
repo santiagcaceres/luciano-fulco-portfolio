@@ -215,9 +215,10 @@ export default function EditarObra({ params }: PageProps) {
                         <option value="oleos">Óleos</option>
                         <option value="oleo-pastel">Óleo Pastel</option>
                         <option value="acrilicos">Acrílicos</option>
-                        <option value="tecnica-mixta">Técnica Mixta</option> {/* 🆕 NUEVA CATEGORÍA */}
+                        <option value="tecnica-mixta">Técnica Mixta</option>
                         <option value="acuarelas">Acuarelas</option>
                         <option value="dibujos">Dibujos</option>
+                        <option value="esculturas">Esculturas</option>
                         <option value="otros">Otros</option>
                       </select>
                     </div>

@@ -157,6 +157,7 @@ export default function NuevaObra() {
                       <option value="tecnica-mixta">Técnica Mixta</option>
                       <option value="acuarelas">Acuarelas</option>
                       <option value="dibujos">Dibujos</option>
+                      <option value="esculturas">Esculturas</option>
                       <option value="otros">Otros</option>
                     </select>
                   </div>

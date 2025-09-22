@@ -20,6 +20,7 @@ import {
   Pencil,
   Shapes,
   Calendar,
+  Box,
 } from "lucide-react"
 import { trackCategoryFilter, trackSearch } from "@/lib/gtag"
 
@@ -48,6 +49,7 @@ const CATEGORIES = [
   { id: "tecnica-mixta", label: "Técnica Mixta", count: 0, icon: Shapes },
   { id: "acuarelas", label: "Acuarelas", count: 0, icon: Droplets },
   { id: "dibujos", label: "Dibujos", count: 0, icon: Pencil },
+  { id: "esculturas", label: "Esculturas", count: 0, icon: Box },
   { id: "otros", label: "Otros", count: 0, icon: PenTool },
 ]
 

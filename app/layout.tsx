@@ -79,12 +79,16 @@ export const metadata: Metadata = {
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/favicon.png", sizes: "192x192", type: "image/png" },
+      { url: "/favicon.png", sizes: "512x512", type: "image/png" },
+    ],
     shortcut: "/favicon.png",
   },
   manifest: "/site.webmanifest",
   metadataBase: new URL("https://lucianofulco.com"),
-    generator: 'v0.dev'
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -95,15 +99,35 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
+        {/* Favicon principal */}
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="shortcut icon" href="/favicon.png" type="image/png" />
+
+        {/* Favicons específicos por tamaño */}
         <link rel="icon" href="/favicon-16x16.png" sizes="16x16" type="image/png" />
         <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+        {/* Apple Touch Icons - CRÍTICO para iOS */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+        <link rel="apple-touch-icon" href="/favicon.png" sizes="192x192" />
+        <link rel="apple-touch-icon" href="/favicon.png" sizes="512x512" />
+
+        {/* Apple específico - Configuración adicional para iOS */}
+        <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Luciano Fulco" />
+
+        {/* Web App Manifest */}
         <link rel="manifest" href="/site.webmanifest" />
+
+        {/* Theme colors */}
         <meta name="theme-color" content="#000000" />
         <meta name="msapplication-TileColor" content="#000000" />
         <meta name="msapplication-TileImage" content="/favicon.png" />
+
+        {/* Preload crítico para iOS */}
+        <link rel="preload" href="/apple-touch-icon.png" as="image" type="image/png" />
       </head>
       <body className={`${inter.variable} ${playfairDisplay.variable} font-sans`}>
         <Suspense>
