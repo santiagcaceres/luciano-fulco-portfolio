@@ -30,6 +30,7 @@ export const metadata: Metadata = {
     "óleo",
     "óleo pastel",
     "acuarela",
+    "esculturas",
     "Santa Lucía",
     "Uruguay",
     "arte contemporáneo",
@@ -99,7 +100,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
-        {/* Favicon principal */}
+        {/* Favicon principal - Nueva imagen artística "F" */}
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="shortcut icon" href="/favicon.png" type="image/png" />
 

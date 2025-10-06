@@ -1,422 +1,254 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import Image from "next/image"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
+import { ArrowLeft, Filter, X, Paintbrush, Droplet, Palette, Pencil, Box } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Search,
-  Filter,
-  ArrowUp,
-  ArrowDown,
-  Palette,
-  Brush,
-  Droplets,
-  PenTool,
-  Layers,
-  Pencil,
-  Shapes,
-  Calendar,
-  Box,
-} from "lucide-react"
-import { trackCategoryFilter, trackSearch } from "@/lib/gtag"
+import type { Artwork } from "@/types/artwork"
+import { trackEvent } from "@/lib/gtag"
 
-interface Artwork {
-  id: string
-  title: string
-  category: string
-  subcategory?: string
-  price: number
-  description: string
-  status: string
-  main_image_url?: string
-  year?: number
-  created_at: string
+const categoryIcons = {
+  Acrílico: Paintbrush,
+  Óleo: Droplet,
+  "Óleo Pastel": Palette,
+  Acuarela: Droplet,
+  Dibujo: Pencil,
+  Esculturas: Box,
 }
 
-interface ObrasClientPageProps {
-  artworks: Artwork[]
-}
+const categories = ["Acrílico", "Óleo", "Óleo Pastel", "Acuarela", "Dibujo", "Esculturas"]
 
-const CATEGORIES = [
-  { id: "todos", label: "Todas", count: 0, icon: Palette },
-  { id: "oleos", label: "Óleos", count: 0, icon: Brush },
-  { id: "oleo-pastel", label: "Óleo Pastel", count: 0, icon: Layers },
-  { id: "acrilicos", label: "Acrílicos", count: 0, icon: Palette },
-  { id: "tecnica-mixta", label: "Técnica Mixta", count: 0, icon: Shapes },
-  { id: "acuarelas", label: "Acuarelas", count: 0, icon: Droplets },
-  { id: "dibujos", label: "Dibujos", count: 0, icon: Pencil },
-  { id: "esculturas", label: "Esculturas", count: 0, icon: Box },
-  { id: "otros", label: "Otros", count: 0, icon: PenTool },
-]
-
-const STATUS_OPTIONS = [
-  { id: "todos", label: "Todos los Estados" },
-  { id: "Disponible", label: "Disponibles" },
-  { id: "Vendida", label: "Vendidas" },
-]
-
-const SORT_OPTIONS = [
-  { id: "default", label: "Orden por Defecto", icon: ArrowUp },
-  { id: "price-asc", label: "Menor Precio", icon: ArrowUp },
-  { id: "price-desc", label: "Mayor Precio", icon: ArrowDown },
-]
-
-export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
-  const [selectedCategory, setSelectedCategory] = useState("todos")
-  const [selectedStatus, setSelectedStatus] = useState("todos")
-  const [selectedSort, setSelectedSort] = useState("default")
-  const [selectedYear, setSelectedYear] = useState("todos")
-  const [searchTerm, setSearchTerm] = useState("")
+export default function ObrasClientPage({ initialArtworks }: { initialArtworks: Artwork[] }) {
+  const [artworks, setArtworks] = useState<Artwork[]>(initialArtworks)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedYear, setSelectedYear] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
+  const [showYearFilter, setShowYearFilter] = useState(false)
 
-  // Obtener años únicos de las obras
-  const availableYears = useMemo(() => {
-    const years = artworks
-      .map((artwork) => artwork.year)
-      .filter((year): year is number => year !== undefined && year !== null)
-      .sort((a, b) => b - a) // Ordenar de más reciente a más antiguo
+  // Extract unique years from artworks and sort from newest to oldest
+  const availableYears = Array.from(new Set(artworks.map((artwork) => artwork.year)))
+    .sort((a, b) => b - a)
+    .map(String)
 
-    return Array.from(new Set(years))
-  }, [artworks])
+  useEffect(() => {
+    let filtered = initialArtworks
 
-  // Calcular conteos de categorías
-  const categoriesWithCounts = useMemo(() => {
-    return CATEGORIES.map((category) => ({
-      ...category,
-      count:
-        category.id === "todos"
-          ? artworks.length
-          : artworks.filter((artwork) => artwork.category === category.id).length,
-    }))
-  }, [artworks])
+    if (selectedCategory) {
+      filtered = filtered.filter((artwork) => artwork.category === selectedCategory)
+    }
 
-  // Filtrar y ordenar obras
-  const filteredAndSortedArtworks = useMemo(() => {
-    const filtered = artworks.filter((artwork) => {
-      const categoryMatch = selectedCategory === "todos" || artwork.category === selectedCategory
-      const statusMatch = selectedStatus === "todos" || artwork.status === selectedStatus
-      const yearMatch = selectedYear === "todos" || artwork.year === Number(selectedYear)
-      const searchMatch =
-        searchTerm === "" ||
-        artwork.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        artwork.description.toLowerCase().includes(searchTerm.toLowerCase())
+    if (selectedYear) {
+      filtered = filtered.filter((artwork) => artwork.year.toString() === selectedYear)
+    }
 
-      return categoryMatch && statusMatch && yearMatch && searchMatch
+    setArtworks(filtered)
+  }, [selectedCategory, selectedYear, initialArtworks])
+
+  const handleCategoryFilter = (category: string) => {
+    const newCategory = selectedCategory === category ? null : category
+    setSelectedCategory(newCategory)
+
+    // Track filter usage
+    trackEvent({
+      action: "filter_category",
+      category: "Engagement",
+      label: newCategory || "clear",
     })
-
-    switch (selectedSort) {
-      case "price-asc":
-        return [...filtered].sort((a, b) => a.price - b.price)
-      case "price-desc":
-        return [...filtered].sort((a, b) => b.price - a.price)
-      default:
-        return filtered
-    }
-  }, [artworks, selectedCategory, selectedStatus, selectedYear, searchTerm, selectedSort])
-
-  const clearFilters = () => {
-    setSelectedCategory("todos")
-    setSelectedStatus("todos")
-    setSelectedSort("default")
-    setSelectedYear("todos")
-    setSearchTerm("")
   }
 
-  const hasActiveFilters =
-    selectedCategory !== "todos" ||
-    selectedStatus !== "todos" ||
-    selectedSort !== "default" ||
-    selectedYear !== "todos" ||
-    searchTerm !== ""
+  const handleYearFilter = (year: string) => {
+    const newYear = selectedYear === year ? null : year
+    setSelectedYear(newYear)
 
-  // Handle category filter with analytics
-  const handleCategoryFilter = (categoryId: string) => {
-    setSelectedCategory(categoryId)
-    trackCategoryFilter(categoryId)
+    // Track year filter usage
+    trackEvent({
+      action: "filter_year",
+      category: "Engagement",
+      label: newYear || "clear",
+    })
   }
 
-  // Handle search with analytics
-  const handleSearch = (term: string) => {
-    setSearchTerm(term)
-    if (term.length > 2) {
-      // Only track searches with 3+ characters
-      trackSearch(term)
-    }
+  const clearAllFilters = () => {
+    setSelectedCategory(null)
+    setSelectedYear(null)
+
+    trackEvent({
+      action: "clear_all_filters",
+      category: "Engagement",
+    })
+  }
+
+  const toggleYearFilter = () => {
+    setShowYearFilter(!showYearFilter)
   }
 
   return (
-    <div className="min-h-screen relative">
-      {/* Fondo artístico global */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-gray-100"></div>
-        <div className="absolute top-20 left-10 w-32 h-32 bg-red-200/20 rounded-full blur-2xl animate-pulse"></div>
-        <div className="absolute top-60 right-20 w-24 h-24 bg-blue-200/30 rounded-full blur-xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-40 left-1/4 w-40 h-40 bg-yellow-200/15 rounded-full blur-3xl animate-pulse delay-2000"></div>
-        <div className="absolute bottom-20 right-1/3 w-28 h-28 bg-purple-200/25 rounded-full blur-lg animate-pulse delay-500"></div>
-      </div>
-
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center py-4 md:py-6">
-            <Link href="/" className="transition-transform hover:scale-105">
-              <Image
-                src="/images/negro-lucho.png"
-                alt="Fulco Logo - Volver al inicio"
-                width={150}
-                height={75}
-                className="h-10 md:h-12 w-auto"
-                priority
-              />
+      <header className="border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Volver
+              </Button>
             </Link>
+            <h1 className="text-2xl font-bold font-playfair">Todas las Obras</h1>
+            <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className="gap-2">
+              <Filter className="h-4 w-4" />
+              Filtros
+            </Button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-12">
-        {/* Header */}
-        <div className="text-center mb-8 md:mb-12">
-          <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4 font-serif-display">Todas las Obras</h1>
-          <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
-            Explora la colección completa de obras de Luciano Fulco. Cada pieza cuenta una historia única a través del
-            color, la forma y la emoción.
-          </p>
-        </div>
+      {/* Filters Panel */}
+      {showFilters && (
+        <div className="border-b bg-white dark:bg-gray-900 shadow-sm">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Filtrar por:</h2>
+              {(selectedCategory || selectedYear) && (
+                <Button variant="ghost" size="sm" onClick={clearAllFilters} className="gap-2">
+                  <X className="h-4 w-4" />
+                  Limpiar filtros
+                </Button>
+              )}
+            </div>
 
-        {/* FILTROS MINIMALISTAS */}
-        <div className="bg-white/95 backdrop-blur-sm border shadow-sm rounded-lg mb-8">
-          <div className="p-4">
-            {/* Barra de búsqueda */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  type="text"
-                  placeholder="Buscar obras..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-9 h-9 text-sm"
-                />
+            {/* Category Filters */}
+            <div className="mb-4">
+              <h3 className="text-sm font-medium mb-3 text-gray-600 dark:text-gray-400">Categoría</h3>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((category) => {
+                  const Icon = categoryIcons[category as keyof typeof categoryIcons]
+                  return (
+                    <Button
+                      key={category}
+                      variant={selectedCategory === category ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleCategoryFilter(category)}
+                      className="gap-2"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {category}
+                    </Button>
+                  )
+                })}
               </div>
+            </div>
+
+            {/* Year Filter Toggle Button */}
+            <div className="mb-2">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="h-9 px-3 text-sm"
+                onClick={toggleYearFilter}
+                className="gap-2 text-gray-600 dark:text-gray-400"
               >
-                <Filter className="w-4 h-4 mr-1" />
-                Filtros
-                {(selectedStatus !== "todos" || selectedSort !== "default" || selectedYear !== "todos") && (
-                  <span className="ml-1 w-1.5 h-1.5 bg-black rounded-full"></span>
-                )}
+                <Filter className="h-4 w-4" />
+                {showYearFilter ? "Ocultar años" : "Filtrar por año"}
               </Button>
             </div>
 
-            {/* CATEGORÍAS MINIMALISTAS - SIEMPRE VISIBLES */}
-            <div className="flex flex-wrap gap-2">
-              {categoriesWithCounts.map((category) => {
-                const Icon = category.icon
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => handleCategoryFilter(category.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                      selectedCategory === category.id
-                        ? "bg-black text-white"
-                        : "bg-white border border-gray-200 text-gray-700 hover:border-gray-300"
-                    }`}
+            {/* Year Filters - Only visible when toggled */}
+            {showYearFilter && (
+              <div>
+                <h3 className="text-sm font-medium mb-3 text-gray-600 dark:text-gray-400">Año</h3>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={selectedYear === null ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleYearFilter("")}
                   >
-                    <Icon className="w-3.5 h-3.5" />
-                    {category.label}
-                    <span className={`${selectedCategory === category.id ? "text-white/70" : "text-gray-500"}`}>
-                      ({category.count})
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* FILTROS ADICIONALES */}
-            {showFilters && (
-              <div className="mt-4 pt-4 border-t space-y-3">
-                {/* Filtro por Año */}
-                {availableYears.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">Año</label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant={selectedYear === "todos" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedYear("todos")}
-                        className={`h-8 px-3 text-xs ${
-                          selectedYear === "todos" ? "bg-black text-white hover:bg-gray-800" : "hover:bg-gray-50"
-                        }`}
-                      >
-                        <Calendar className="w-3 h-3 mr-1" />
-                        Todos los años
-                      </Button>
-                      {availableYears.map((year) => (
-                        <Button
-                          key={year}
-                          variant={selectedYear === year.toString() ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setSelectedYear(year.toString())}
-                          className={`h-8 px-3 text-xs ${
-                            selectedYear === year.toString()
-                              ? "bg-black text-white hover:bg-gray-800"
-                              : "hover:bg-gray-50"
-                          }`}
-                        >
-                          {year}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Ordenamiento */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Ordenar</label>
-                  <div className="flex flex-wrap gap-2">
-                    {SORT_OPTIONS.map((option) => {
-                      const Icon = option.icon
-                      return (
-                        <Button
-                          key={option.id}
-                          variant={selectedSort === option.id ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setSelectedSort(option.id)}
-                          className={`h-8 px-3 text-xs ${
-                            selectedSort === option.id ? "bg-black text-white hover:bg-gray-800" : "hover:bg-gray-50"
-                          }`}
-                        >
-                          <Icon className="w-3 h-3 mr-1" />
-                          {option.label}
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Estado */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Estado</label>
-                  <div className="flex flex-wrap gap-2">
-                    {STATUS_OPTIONS.map((status) => (
-                      <Button
-                        key={status.id}
-                        variant={selectedStatus === status.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedStatus(status.id)}
-                        className={`h-8 px-3 text-xs ${
-                          selectedStatus === status.id ? "bg-black text-white hover:bg-gray-800" : "hover:bg-gray-50"
-                        }`}
-                      >
-                        {status.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Limpiar filtros */}
-                {hasActiveFilters && (
-                  <div className="pt-2">
+                    Todos los años
+                  </Button>
+                  {availableYears.map((year) => (
                     <Button
-                      variant="ghost"
+                      key={year}
+                      variant={selectedYear === year ? "default" : "outline"}
                       size="sm"
-                      onClick={clearFilters}
-                      className="h-8 px-3 text-xs text-gray-600 hover:text-gray-800"
+                      onClick={() => handleYearFilter(year)}
                     >
-                      Limpiar filtros
+                      {year}
                     </Button>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             )}
           </div>
         </div>
+      )}
 
-        {/* Resultados */}
-        <div className="mb-6">
-          <p className="text-sm text-gray-600">
-            {filteredAndSortedArtworks.length === 0
-              ? "No se encontraron obras"
-              : `${filteredAndSortedArtworks.length} de ${artworks.length} obras`}
-            {selectedSort !== "default" && (
-              <span className="ml-2 text-xs text-gray-500">
-                • {SORT_OPTIONS.find((opt) => opt.id === selectedSort)?.label}
-              </span>
+      {/* Active Filters Display */}
+      {(selectedCategory || selectedYear) && (
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Filtros activos:</span>
+            {selectedCategory && (
+              <Badge variant="secondary" className="gap-1">
+                {selectedCategory}
+                <button onClick={() => setSelectedCategory(null)} className="ml-1">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
             )}
-            {selectedYear !== "todos" && <span className="ml-2 text-xs text-gray-500">• Año {selectedYear}</span>}
-          </p>
+            {selectedYear && (
+              <Badge variant="secondary" className="gap-1">
+                {selectedYear}
+                <button onClick={() => setSelectedYear(null)} className="ml-1">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+          </div>
         </div>
+      )}
 
-        {/* Grid de obras */}
-        {filteredAndSortedArtworks.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-lg text-gray-500 mb-2">No se encontraron obras</p>
-            <p className="text-sm text-gray-400 mb-4">Intenta ajustar los filtros</p>
-            {hasActiveFilters && (
-              <Button onClick={clearFilters} variant="outline" size="sm">
-                Ver todas las obras
-              </Button>
-            )}
+      {/* Artworks Grid */}
+      <main className="container mx-auto px-4 py-8">
+        {artworks.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-xl text-gray-500 dark:text-gray-400">
+              No se encontraron obras con los filtros seleccionados
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-            {filteredAndSortedArtworks.map((artwork) => (
-              <Link key={artwork.id} href={`/obra/${artwork.id}`}>
-                <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer bg-white/90 backdrop-blur-sm border border-white/20 group">
-                  <div className="aspect-square overflow-hidden bg-gray-100">
-                    <Image
-                      src={
-                        artwork.main_image_url ||
-                        `https://placehold.co/400x400/E5E7EB/374151/jpeg?text=${encodeURIComponent(artwork.title) || "/placeholder.svg"}`
-                      }
-                      alt={artwork.title}
-                      width={400}
-                      height={400}
-                      className="w-full h-full object-cover"
-                      quality={90}
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                      onError={(e) => {
-                        console.error("Error loading artwork image:", artwork.main_image_url)
-                        e.currentTarget.src = `https://placehold.co/400x400/E5E7EB/374151/jpeg?text=Error+cargando+imagen`
-                      }}
-                    />
-                  </div>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">{artwork.title}</h3>
-                      <div
-                        className={`w-3 h-3 rounded-full flex-shrink-0 ml-2 mt-1 ${
-                          artwork.status === "Disponible" ? "bg-green-500" : "bg-red-500"
-                        }`}
-                      ></div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{artwork.description}</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xl font-bold text-gray-900">USD {artwork.price}</p>
-                      <div className="flex gap-1">
-                        <Badge className="capitalize text-xs">{artwork.category}</Badge>
-                        {artwork.status === "Vendida" && (
-                          <Badge variant="destructive" className="text-xs">
-                            Vendida
-                          </Badge>
-                        )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {artworks.map((artwork) => {
+              const Icon = categoryIcons[artwork.category as keyof typeof categoryIcons]
+              return (
+                <Link key={artwork.id} href={`/obra/${artwork.id}`}>
+                  <Card className="group cursor-pointer overflow-hidden hover:shadow-xl transition-all duration-300">
+                    <div className="relative aspect-square overflow-hidden bg-gray-100 dark:bg-gray-800">
+                      <Image
+                        src={artwork.images[0] || "/placeholder.svg"}
+                        alt={artwork.title}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                      <div className="absolute top-2 right-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1">
+                        <Icon className="h-3 w-3" />
+                        <span className="text-xs font-medium">{artwork.category}</span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                    <CardContent className="p-4">
+                      <h3 className="font-playfair text-lg font-semibold mb-1 line-clamp-1">{artwork.title}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{artwork.year}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{artwork.description}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            })}
           </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }
