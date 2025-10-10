@@ -72,5 +72,3 @@ export const trackArtworkInquiry = (artworkTitle: string, method: "email" | "wha
     label: `${artworkTitle} - ${method}`,
   })
 }
-
-export const trackEvent = event
