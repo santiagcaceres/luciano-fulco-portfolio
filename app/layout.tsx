@@ -1,94 +1,46 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, Playfair_Display } from "next/font/google"
+import { Inter } from "next/font/google"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
-import { Analytics } from "@vercel/analytics/next"
-import { Suspense } from "react"
+import { Analytics } from "@vercel/analytics/react"
 import GoogleAnalytics from "@/components/google-analytics"
+import { Suspense } from "react"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
-const playfairDisplay = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-playfair-display",
-})
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: {
-    default: "Luciano Fulco - Artista Visual Uruguayo",
-    template: "%s | Luciano Fulco",
-  },
-  description:
-    "Portfolio oficial de Luciano Fulco, artista visual uruguayo. Descubre obras únicas en acrílico, óleo, acuarela y dibujo. Arte simbólico desde Santa Lucía, Uruguay.",
-  keywords: [
-    "Luciano Fulco",
-    "artista uruguayo",
-    "pintura",
-    "arte visual",
-    "acrílico",
-    "óleo",
-    "óleo pastel",
-    "acuarela",
-    "esculturas",
-    "Santa Lucía",
-    "Uruguay",
-    "arte contemporáneo",
-    "pintura simbólica",
-  ],
-  authors: [{ name: "Luciano Fulco" }],
-  creator: "Luciano Fulco",
-  publisher: "LaunchByte",
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-  openGraph: {
-    type: "website",
-    locale: "es_UY",
-    url: "https://lucianofulco.com",
-    siteName: "Luciano Fulco - Artista Visual",
-    title: "Luciano Fulco - Artista Visual Uruguayo",
-    description:
-      "Portfolio oficial de Luciano Fulco, artista visual uruguayo. Arte simbólico desde Santa Lucía, Uruguay.",
-    images: [
-      {
-        url: "/favicon.png",
-        width: 512,
-        height: 512,
-        alt: "Luciano Fulco - Artista Visual Uruguayo",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Luciano Fulco - Artista Visual Uruguayo",
-    description:
-      "Portfolio oficial de Luciano Fulco, artista visual uruguayo. Arte simbólico desde Santa Lucía, Uruguay.",
-    images: ["/favicon.png"],
-  },
+  title: "Luciano Fulco - Artista Visual",
+  description: "Portfolio de obras de Luciano Fulco, artista visual contemporáneo",
   icons: {
     icon: [
-      { url: "/favicon.png", sizes: "any", type: "image/png" },
+      { url: "/favicon.png", type: "image/png" },
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
     ],
-    apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-      { url: "/favicon.png", sizes: "192x192", type: "image/png" },
-      { url: "/favicon.png", sizes: "512x512", type: "image/png" },
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    other: [
+      {
+        rel: "apple-touch-icon-precomposed",
+        url: "/apple-touch-icon.png",
+      },
     ],
-    shortcut: "/favicon.png",
   },
   manifest: "/site.webmanifest",
-  metadataBase: new URL("https://lucianofulco.com"),
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Luciano Fulco",
+  },
+  keywords: [
+    "arte",
+    "artista visual",
+    "Luciano Fulco",
+    "pintura",
+    "arte contemporáneo",
+    "portfolio",
+    "obras de arte",
+    "esculturas",
+  ],
     generator: 'v0.app'
 }
 
@@ -98,47 +50,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang="es">
       <head>
-        {/* Favicon principal - Nueva imagen artística "F" */}
-        <link rel="icon" href="/favicon.png" type="image/png" />
-        <link rel="shortcut icon" href="/favicon.png" type="image/png" />
-
-        {/* Favicons específicos por tamaño */}
-        <link rel="icon" href="/favicon-16x16.png" sizes="16x16" type="image/png" />
-        <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png" />
-
-        {/* Apple Touch Icons - CRÍTICO para iOS */}
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
-        <link rel="apple-touch-icon" href="/favicon.png" sizes="192x192" />
-        <link rel="apple-touch-icon" href="/favicon.png" sizes="512x512" />
-
-        {/* Apple específico - Configuración adicional para iOS */}
-        <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png" />
+        <link rel="preload" href="/favicon.png" as="image" type="image/png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Luciano Fulco" />
-
-        {/* Web App Manifest */}
-        <link rel="manifest" href="/site.webmanifest" />
-
-        {/* Theme colors */}
-        <meta name="theme-color" content="#000000" />
-        <meta name="msapplication-TileColor" content="#000000" />
-        <meta name="msapplication-TileImage" content="/favicon.png" />
-
-        {/* Preload crítico para iOS */}
-        <link rel="preload" href="/apple-touch-icon.png" as="image" type="image/png" />
       </head>
-      <body className={`${inter.variable} ${playfairDisplay.variable} font-sans`}>
-        <Suspense>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
-            {children}
-            <Toaster />
-            <Analytics />
-            <GoogleAnalytics />
-          </ThemeProvider>
+      <body className={inter.className}>
+        <Suspense fallback={null}>
+          <GoogleAnalytics />
+          {children}
         </Suspense>
+        <Analytics />
       </body>
     </html>
   )
