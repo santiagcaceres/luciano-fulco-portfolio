@@ -60,7 +60,7 @@ export const metadata: Metadata = {
       "Portfolio oficial de Luciano Fulco, artista visual uruguayo. Arte simbólico desde Santa Lucía, Uruguay.",
     images: [
       {
-        url: "/favicon.png",
+        url: "/icon-512x512.png",
         width: 512,
         height: 512,
         alt: "Luciano Fulco - Artista Visual Uruguayo",
@@ -72,38 +72,45 @@ export const metadata: Metadata = {
     title: "Luciano Fulco - Artista Visual Uruguayo",
     description:
       "Portfolio oficial de Luciano Fulco, artista visual uruguayo. Arte simbólico desde Santa Lucía, Uruguay.",
-    images: ["/favicon.png"],
+    images: ["/icon-512x512.png"],
   },
   icons: {
     icon: [
-      { url: "/favicon.png", sizes: "any", type: "image/png" },
+      { url: "/favicon.ico", type: "image/x-icon" },
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon.ico", rel: "icon", type: "image/x-icon" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-      { url: "/favicon.png", sizes: "192x192", type: "image/png" },
-      { url: "/favicon.png", sizes: "512x512", type: "image/png" },
+      { url: "/apple-icon-57x57.png", sizes: "57x57", type: "image/png" },
+      { url: "/apple-icon-60x60.png", sizes: "60x60", type: "image/png" },
+      { url: "/apple-icon-72x72.png", sizes: "72x72", type: "image/png" },
+      { url: "/apple-icon-76x76.png", sizes: "76x76", type: "image/png" },
+      { url: "/apple-icon-114x114.png", sizes: "114x114", type: "image/png" },
+      { url: "/apple-icon-120x120.png", sizes: "120x120", type: "image/png" },
+      { url: "/apple-icon-144x144.png", sizes: "144x144", type: "image/png" },
+      { url: "/apple-icon-152x152.png", sizes: "152x152", type: "image/png" },
+      { url: "/apple-icon-180x180.png", sizes: "180x180", type: "image/png" },
     ],
-    shortcut: [{ url: "/favicon.ico", type: "image/x-icon" }],
-    other: [
-      {
-        rel: "apple-touch-icon-precomposed",
-        url: "/apple-touch-icon.png",
-      },
-      {
-        rel: "mask-icon",
-        url: "/favicon.png",
-        color: "#000000",
-      },
-    ],
+    shortcut: [{ url: "/favicon.ico" }],
   },
   manifest: "/site.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Luciano Fulco",
+    startupImage: [
+      {
+        url: "/apple-icon-180x180.png",
+        media: "(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)",
+      },
+      {
+        url: "/icon-512x512.png",
+        media: "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)",
+      },
+    ],
   },
   metadataBase: new URL("https://lucianofulco.com"),
     generator: 'v0.app'
@@ -117,48 +124,61 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
-        {/* Favicon principal - Universal para todos los navegadores */}
-        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-        <link rel="icon" href="/favicon.png" type="image/png" />
-        <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+        {/* Favicon principal con versioning para forzar actualización */}
+        <link rel="icon" href="/favicon.ico?v=2" type="image/x-icon" />
+        <link rel="shortcut icon" href="/favicon.ico?v=2" type="image/x-icon" />
 
-        {/* Favicons específicos por tamaño */}
-        <link rel="icon" href="/favicon-16x16.png" sizes="16x16" type="image/png" />
-        <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png" />
-        <link rel="icon" href="/favicon.png" sizes="192x192" type="image/png" />
-        <link rel="icon" href="/favicon.png" sizes="512x512" type="image/png" />
+        {/* Favicons PNG con versioning */}
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2" />
+        <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png?v=2" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png?v=2" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512x512.png?v=2" />
 
-        {/* Apple Touch Icons - iOS, iPadOS, macOS */}
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
-        <link rel="apple-touch-icon" href="/favicon.png" sizes="192x192" />
-        <link rel="apple-touch-icon" href="/favicon.png" sizes="512x512" />
-        <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png" />
+        {/* Apple Touch Icons - TODOS los tamaños posibles con versioning */}
+        <link rel="apple-touch-icon" sizes="57x57" href="/apple-icon-57x57.png?v=2" />
+        <link rel="apple-touch-icon" sizes="60x60" href="/apple-icon-60x60.png?v=2" />
+        <link rel="apple-touch-icon" sizes="72x72" href="/apple-icon-72x72.png?v=2" />
+        <link rel="apple-touch-icon" sizes="76x76" href="/apple-icon-76x76.png?v=2" />
+        <link rel="apple-touch-icon" sizes="114x114" href="/apple-icon-114x114.png?v=2" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-icon-120x120.png?v=2" />
+        <link rel="apple-touch-icon" sizes="144x144" href="/apple-icon-144x144.png?v=2" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/apple-icon-152x152.png?v=2" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon-180x180.png?v=2" />
 
-        {/* Safari Pinned Tab */}
-        <link rel="mask-icon" href="/favicon.png" color="#000000" />
+        {/* Apple Touch Icon principal - el más importante para iOS */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+        <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-precomposed.png?v=2" />
+
+        {/* Safari Pinned Tab con versioning */}
+        <link rel="mask-icon" href="/icon-512x512.png?v=2" color="#000000" />
 
         {/* Apple Web App Configuration */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Luciano Fulco" />
 
+        {/* Apple Startup Images */}
+        <link rel="apple-touch-startup-image" href="/apple-icon-180x180.png?v=2" />
+
         {/* Android/Chrome */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="application-name" content="Luciano Fulco" />
 
-        {/* Web App Manifest */}
-        <link rel="manifest" href="/site.webmanifest" />
+        {/* Web App Manifest con versioning */}
+        <link rel="manifest" href="/site.webmanifest?v=2" />
 
-        {/* Theme colors - Universal */}
+        {/* Theme colors */}
         <meta name="theme-color" content="#000000" />
         <meta name="msapplication-TileColor" content="#000000" />
-        <meta name="msapplication-TileImage" content="/favicon.png" />
-        <meta name="msapplication-config" content="/browserconfig.xml" />
+        <meta name="msapplication-TileImage" content="/icon-512x512.png?v=2" />
 
-        {/* Preload crítico para mejor rendimiento */}
-        <link rel="preload" href="/favicon.png" as="image" type="image/png" />
-        <link rel="preload" href="/apple-touch-icon.png" as="image" type="image/png" />
+        {/* Preload crítico con versioning */}
+        <link rel="preload" href="/apple-icon-180x180.png?v=2" as="image" type="image/png" />
+        <link rel="preload" href="/icon-512x512.png?v=2" as="image" type="image/png" />
+
+        {/* DNS Prefetch para mejor rendimiento */}
+        <link rel="dns-prefetch" href="https://lucianofulco.com" />
       </head>
       <body className={`${inter.variable} ${playfairDisplay.variable} font-sans`}>
         <Suspense>
