@@ -1,357 +1,233 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Upload, X, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { createArtwork } from "@/app/actions/artworks"
-import { useToast } from "@/hooks/use-toast"
-import { compressImage } from "@/lib/image-compression"
+import { SuccessPopup } from "@/components/success-popup"
+import { MultipleImageUpload } from "@/components/multiple-image-upload"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function NuevaObraPage() {
   const router = useRouter()
-  const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [mainImagePreview, setMainImagePreview] = useState<string | null>(null)
-  const [mainImageFile, setMainImageFile] = useState<File | null>(null)
-  const [additionalImages, setAdditionalImages] = useState<File[]>([])
-  const [additionalImagesPreviews, setAdditionalImagesPreviews] = useState<string[]>([])
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [images, setImages] = useState<File[]>([])
+  const [error, setError] = useState<string | null>(null)
 
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: "",
-    year: new Date().getFullYear(),
-    dimensions: "",
-    materials: "",
-    price: "",
-    available: true,
-  })
-
-  const handleMainImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      try {
-        const compressedFile = await compressImage(file)
-        setMainImageFile(compressedFile)
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          setMainImagePreview(reader.result as string)
-        }
-        reader.readAsDataURL(compressedFile)
-      } catch (error) {
-        console.error("Error al comprimir imagen:", error)
-        toast({
-          title: "Error",
-          description: "No se pudo procesar la imagen",
-          variant: "destructive",
-        })
-      }
-    }
-  }
-
-  const handleAdditionalImagesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length > 0) {
-      try {
-        const compressedFiles = await Promise.all(files.map((file) => compressImage(file)))
-        setAdditionalImages([...additionalImages, ...compressedFiles])
-
-        const newPreviews = await Promise.all(
-          compressedFiles.map((file) => {
-            return new Promise<string>((resolve) => {
-              const reader = new FileReader()
-              reader.onloadend = () => resolve(reader.result as string)
-              reader.readAsDataURL(file)
-            })
-          }),
-        )
-        setAdditionalImagesPreviews([...additionalImagesPreviews, ...newPreviews])
-      } catch (error) {
-        console.error("Error al comprimir imágenes:", error)
-        toast({
-          title: "Error",
-          description: "No se pudieron procesar algunas imágenes",
-          variant: "destructive",
-        })
-      }
-    }
-  }
-
-  const removeAdditionalImage = (index: number) => {
-    setAdditionalImages(additionalImages.filter((_, i) => i !== index))
-    setAdditionalImagesPreviews(additionalImagesPreviews.filter((_, i) => i !== index))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!mainImageFile) {
-      toast({
-        title: "Error",
-        description: "Debes seleccionar una imagen principal",
-        variant: "destructive",
-      })
-      return
-    }
-
+    setError(null)
     setIsSubmitting(true)
 
     try {
-      const formDataToSend = new FormData()
-      formDataToSend.append("title", formData.title)
-      formDataToSend.append("description", formData.description)
-      formDataToSend.append("category", formData.category)
-      formDataToSend.append("year", formData.year.toString())
-      formDataToSend.append("dimensions", formData.dimensions)
-      formDataToSend.append("materials", formData.materials)
-      formDataToSend.append("price", formData.price)
-      formDataToSend.append("available", formData.available.toString())
-      formDataToSend.append("mainImage", mainImageFile)
+      const formData = new FormData(e.currentTarget)
 
-      additionalImages.forEach((file) => {
-        formDataToSend.append("additionalImages", file)
-      })
-
-      const result = await createArtwork(formDataToSend)
-
-      if (result.success) {
-        toast({
-          title: "Éxito",
-          description: "La obra ha sido creada exitosamente",
-        })
-        router.push("/admin/obras")
-        router.refresh()
-      } else {
-        throw new Error(result.error || "Error al crear la obra")
+      // Validar que hay al menos una imagen
+      if (images.length === 0) {
+        setError("Debes agregar al menos una imagen")
+        setIsSubmitting(false)
+        return
       }
-    } catch (error) {
-      console.error("Error:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "No se pudo crear la obra",
-        variant: "destructive",
+
+      // Agregar todas las imágenes al FormData
+      images.forEach((image) => {
+        formData.append("images", image)
       })
-    } finally {
+
+      await createArtwork(formData)
+      setShowSuccess(true)
+
+      // Esperar un poco para que el usuario vea el popup y luego redirigir
+      setTimeout(() => {
+        router.push("/admin/obras")
+      }, 2000)
+    } catch (error) {
+      console.error("Error creating artwork:", error)
+      setError(error instanceof Error ? error.message : "Error al crear la obra")
       setIsSubmitting(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <Link href="/admin/obras" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver a Obras
-          </Link>
-          <h1 className="text-3xl font-serif font-bold text-gray-900">Nueva Obra</h1>
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center gap-4">
+              <Link href="/admin/obras">
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Volver
+                </Button>
+              </Link>
+              <h1 className="text-2xl font-bold text-gray-900">Nueva Obra</h1>
+            </div>
+          </div>
         </div>
+      </header>
 
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <form onSubmit={handleSubmit}>
           <Card>
             <CardHeader>
               <CardTitle>Información de la Obra</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Título */}
-              <div className="space-y-2">
-                <Label htmlFor="title">Título *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                />
+              {/* Imágenes */}
+              <div>
+                <Label>Imágenes de la Obra *</Label>
+                <p className="text-sm text-gray-500 mb-2">
+                  La primera imagen será la imagen principal. Puedes agregar múltiples imágenes.
+                </p>
+                <MultipleImageUpload images={images} setImages={setImages} />
               </div>
 
-              {/* Descripción */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción *</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  required
-                />
+              {/* Título */}
+              <div>
+                <Label htmlFor="title">Título *</Label>
+                <Input id="title" name="title" required placeholder="Ej: Retrato de la Vulnerabilidad" />
               </div>
 
               {/* Categoría */}
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="category">Categoría *</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                >
+                <Select name="category" required>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Acrílico">Acrílico</SelectItem>
-                    <SelectItem value="Óleo">Óleo</SelectItem>
-                    <SelectItem value="Óleo Pastel">Óleo Pastel</SelectItem>
-                    <SelectItem value="Acuarela">Acuarela</SelectItem>
-                    <SelectItem value="Dibujo">Dibujo</SelectItem>
-                    <SelectItem value="Esculturas">Esculturas</SelectItem>
+                    <SelectItem value="oleos">Óleos</SelectItem>
+                    <SelectItem value="oleo-pastel">Óleo Pastel</SelectItem>
+                    <SelectItem value="acrilicos">Acrílicos</SelectItem>
+                    <SelectItem value="tecnica-mixta">Técnica Mixta</SelectItem>
+                    <SelectItem value="acuarelas">Acuarelas</SelectItem>
+                    <SelectItem value="dibujos">Dibujos</SelectItem>
+                    <SelectItem value="esculturas">Esculturas</SelectItem>
+                    <SelectItem value="otros">Otros</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Subcategoría (opcional) */}
+              <div>
+                <Label htmlFor="subcategory">Subcategoría</Label>
+                <Input id="subcategory" name="subcategory" placeholder="Ej: Espátula, Pincel, etc." />
+              </div>
+
+              {/* Precio */}
+              <div>
+                <Label htmlFor="price">Precio (USD) *</Label>
+                <Input id="price" name="price" type="number" required placeholder="1500" min="0" step="0.01" />
+              </div>
+
+              {/* Descripción Corta */}
+              <div>
+                <Label htmlFor="description">Descripción Corta *</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  required
+                  placeholder="Breve descripción de la obra"
+                  rows={3}
+                />
+              </div>
+
+              {/* Descripción Detallada */}
+              <div>
+                <Label htmlFor="detailedDescription">Descripción Detallada</Label>
+                <Textarea
+                  id="detailedDescription"
+                  name="detailedDescription"
+                  placeholder="Descripción completa de la obra, su significado, técnica, inspiración..."
+                  rows={6}
+                />
+              </div>
+
               {/* Año */}
-              <div className="space-y-2">
-                <Label htmlFor="year">Año *</Label>
+              <div>
+                <Label htmlFor="year">Año</Label>
                 <Input
                   id="year"
+                  name="year"
                   type="number"
-                  value={formData.year}
-                  onChange={(e) => setFormData({ ...formData, year: Number.parseInt(e.target.value) })}
-                  required
+                  placeholder={new Date().getFullYear().toString()}
+                  min="1900"
+                  max={new Date().getFullYear()}
                 />
               </div>
 
               {/* Dimensiones */}
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="dimensions">Dimensiones</Label>
-                <Input
-                  id="dimensions"
-                  value={formData.dimensions}
-                  onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
-                  placeholder="ej: 50 x 70 cm"
-                />
+                <Input id="dimensions" name="dimensions" placeholder="Ej: 60 x 80 cm" />
               </div>
 
-              {/* Materiales */}
-              <div className="space-y-2">
-                <Label htmlFor="materials">Materiales</Label>
-                <Input
-                  id="materials"
-                  value={formData.materials}
-                  onChange={(e) => setFormData({ ...formData, materials: e.target.value })}
-                  placeholder="ej: Óleo sobre lienzo"
-                />
+              {/* Técnica */}
+              <div>
+                <Label htmlFor="technique">Técnica</Label>
+                <Input id="technique" name="technique" placeholder="Ej: Óleo sobre lienzo" />
               </div>
 
-              {/* Precio */}
-              <div className="space-y-2">
-                <Label htmlFor="price">Precio (USD)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="0.00"
-                />
+              {/* Estado */}
+              <div>
+                <Label htmlFor="status">Estado *</Label>
+                <Select name="status" required defaultValue="Disponible">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Disponible">Disponible</SelectItem>
+                    <SelectItem value="Vendida">Vendida</SelectItem>
+                    <SelectItem value="No disponible">No disponible</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Disponibilidad */}
+              {/* Destacada */}
               <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="available"
-                  checked={formData.available}
-                  onChange={(e) => setFormData({ ...formData, available: e.target.checked })}
-                  className="rounded border-gray-300"
-                />
-                <Label htmlFor="available" className="cursor-pointer">
-                  Obra disponible para venta
+                <Checkbox id="featured" name="featured" />
+                <Label htmlFor="featured" className="cursor-pointer">
+                  Marcar como obra destacada (aparecerá en la página principal)
                 </Label>
               </div>
 
-              {/* Imagen Principal */}
-              <div className="space-y-2">
-                <Label>Imagen Principal *</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                  {mainImagePreview ? (
-                    <div className="relative w-full aspect-square max-w-md mx-auto">
-                      <Image
-                        src={mainImagePreview || "/placeholder.svg"}
-                        alt="Preview"
-                        fill
-                        className="object-contain rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2"
-                        onClick={() => {
-                          setMainImagePreview(null)
-                          setMainImageFile(null)
-                        }}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div>
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <p className="mt-2 text-sm text-gray-600">Haz clic para seleccionar una imagen</p>
-                      <p className="text-xs text-gray-500 mt-1">PNG, JPG hasta 10MB</p>
-                      <Input type="file" accept="image/*" onChange={handleMainImageChange} className="mt-4" />
-                    </div>
-                  )}
-                </div>
-              </div>
+              {/* Error */}
+              {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
 
-              {/* Imágenes Adicionales */}
-              <div className="space-y-2">
-                <Label>Imágenes Adicionales (Opcional)</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-                  <Input type="file" accept="image/*" multiple onChange={handleAdditionalImagesChange} />
-                  {additionalImagesPreviews.length > 0 && (
-                    <div className="grid grid-cols-3 gap-4 mt-4">
-                      {additionalImagesPreviews.map((preview, index) => (
-                        <div key={index} className="relative aspect-square">
-                          <Image
-                            src={preview || "/placeholder.svg"}
-                            alt={`Preview ${index + 1}`}
-                            fill
-                            className="object-cover rounded-lg"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-2 right-2"
-                            onClick={() => removeAdditionalImage(index)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
+              {/* Botones */}
+              <div className="flex gap-4 pt-4">
+                <Button type="submit" disabled={isSubmitting} className="flex-1">
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creando...
+                    </>
+                  ) : (
+                    "Crear Obra"
                   )}
-                </div>
+                </Button>
+                <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+                  Cancelar
+                </Button>
               </div>
             </CardContent>
           </Card>
-
-          <div className="flex justify-end gap-4 mt-6">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creando...
-                </>
-              ) : (
-                "Crear Obra"
-              )}
-            </Button>
-          </div>
         </form>
-      </div>
+      </main>
+
+      {/* Success Popup */}
+      {showSuccess && <SuccessPopup message="¡Obra creada exitosamente!" onClose={() => router.push("/admin/obras")} />}
     </div>
   )
 }
