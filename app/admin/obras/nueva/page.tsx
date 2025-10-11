@@ -1,355 +1,357 @@
 "use client"
 
 import type React from "react"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Save, AlertTriangle, Loader2 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowLeft, Upload, X, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { SimpleImageUpload } from "@/components/simple-image-upload"
 import { createArtwork } from "@/app/actions/artworks"
+import { useToast } from "@/hooks/use-toast"
+import { compressImage } from "@/lib/image-compression"
 
-export default function NuevaObra() {
+export default function NuevaObraPage() {
   const router = useRouter()
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedImages, setSelectedImages] = useState<File[]>([])
-  const [isEspatula, setIsEspatula] = useState(false)
-  const [error, setError] = useState<string>("")
+  const { toast } = useToast()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [mainImagePreview, setMainImagePreview] = useState<string | null>(null)
+  const [mainImageFile, setMainImageFile] = useState<File | null>(null)
+  const [additionalImages, setAdditionalImages] = useState<File[]>([])
+  const [additionalImagesPreviews, setAdditionalImagesPreviews] = useState<string[]>([])
 
-  useEffect(() => {
-    const token = localStorage.getItem("admin-token")
-    if (!token) {
-      router.push("/admin/login")
-    } else {
-      setIsAuthenticated(true)
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    category: "",
+    year: new Date().getFullYear(),
+    dimensions: "",
+    materials: "",
+    price: "",
+    available: true,
+  })
+
+  const handleMainImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      try {
+        const compressedFile = await compressImage(file)
+        setMainImageFile(compressedFile)
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          setMainImagePreview(reader.result as string)
+        }
+        reader.readAsDataURL(compressedFile)
+      } catch (error) {
+        console.error("Error al comprimir imagen:", error)
+        toast({
+          title: "Error",
+          description: "No se pudo procesar la imagen",
+          variant: "destructive",
+        })
+      }
     }
-  }, [router])
+  }
+
+  const handleAdditionalImagesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      try {
+        const compressedFiles = await Promise.all(files.map((file) => compressImage(file)))
+        setAdditionalImages([...additionalImages, ...compressedFiles])
+
+        const newPreviews = await Promise.all(
+          compressedFiles.map((file) => {
+            return new Promise<string>((resolve) => {
+              const reader = new FileReader()
+              reader.onloadend = () => resolve(reader.result as string)
+              reader.readAsDataURL(file)
+            })
+          }),
+        )
+        setAdditionalImagesPreviews([...additionalImagesPreviews, ...newPreviews])
+      } catch (error) {
+        console.error("Error al comprimir imágenes:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron procesar algunas imágenes",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  const removeAdditionalImage = (index: number) => {
+    setAdditionalImages(additionalImages.filter((_, i) => i !== index))
+    setAdditionalImagesPreviews(additionalImagesPreviews.filter((_, i) => i !== index))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
-
-    console.log("🚀 Starting form submission...")
-
-    const formData = new FormData(e.target as HTMLFormElement)
-
-    // Solo validar que hay imágenes
-    if (selectedImages.length === 0) {
-      setError("Debes seleccionar al menos una imagen.")
-      setIsLoading(false)
+    if (!mainImageFile) {
+      toast({
+        title: "Error",
+        description: "Debes seleccionar una imagen principal",
+        variant: "destructive",
+      })
       return
     }
 
-    if (isEspatula) {
-      formData.set("subcategory", "espatula")
-    }
-
-    // Añadir imágenes en su orden actual (ya están optimizadas)
-    console.log("📎 Adding optimized images to form data:", selectedImages.length)
-    selectedImages.forEach((image, index) => {
-      console.log(`Adding optimized image ${index + 1}:`, image.name, `${(image.size / 1024 / 1024).toFixed(2)}MB`)
-      formData.append("images", image)
-    })
+    setIsSubmitting(true)
 
     try {
-      console.log("📞 Calling createArtwork with optimized images...")
-      const result = await createArtwork(formData)
-      console.log("✅ createArtwork result:", result)
+      const formDataToSend = new FormData()
+      formDataToSend.append("title", formData.title)
+      formDataToSend.append("description", formData.description)
+      formDataToSend.append("category", formData.category)
+      formDataToSend.append("year", formData.year.toString())
+      formDataToSend.append("dimensions", formData.dimensions)
+      formDataToSend.append("materials", formData.materials)
+      formDataToSend.append("price", formData.price)
+      formDataToSend.append("available", formData.available.toString())
+      formDataToSend.append("mainImage", mainImageFile)
 
-      // Verificar que el resultado tenga un ID válido
-      if (result && (result.id || result.title)) {
-        console.log("🎉 Artwork created successfully!")
+      additionalImages.forEach((file) => {
+        formDataToSend.append("additionalImages", file)
+      })
 
-        // Guardar información para mostrar el mensaje de éxito
-        const artworkTitle = result.title || (formData.get("title") as string)
-        localStorage.setItem(
-          "artwork-created",
-          JSON.stringify({
-            title: artworkTitle,
-            timestamp: Date.now(),
-          }),
-        )
+      const result = await createArtwork(formDataToSend)
 
-        // Redirigir inmediatamente
+      if (result.success) {
+        toast({
+          title: "Éxito",
+          description: "La obra ha sido creada exitosamente",
+        })
         router.push("/admin/obras")
+        router.refresh()
       } else {
-        console.error("❌ Invalid result from createArtwork:", result)
-        throw new Error("Error al crear la obra. Inténtalo de nuevo.")
+        throw new Error(result.error || "Error al crear la obra")
       }
-    } catch (error: any) {
-      console.error("💥 Error creating artwork:", error)
-      setError(error.message || "Error al crear la obra. Inténtalo de nuevo.")
+    } catch (error) {
+      console.error("Error:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "No se pudo crear la obra",
+        variant: "destructive",
+      })
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
-  }
-
-  const handleImagesChange = (files: File[]) => {
-    setSelectedImages(files)
-    setError("") // Limpiar error cuando se seleccionan imágenes
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center py-4">
-            <Link href="/admin/obras">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white bg-transparent"
-                disabled={isLoading}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver a Obras
-              </Button>
-            </Link>
-            <h1 className="text-xl font-bold text-gray-900 ml-4">Nueva Obra</h1>
-          </div>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <Link href="/admin/obras" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Volver a Obras
+          </Link>
+          <h1 className="text-3xl font-serif font-bold text-gray-900">Nueva Obra</h1>
         </div>
-      </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Información Principal</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="title">Título de la Obra *</Label>
-                    <Input id="title" name="title" placeholder="Ej: Paisaje Urbano" required disabled={isLoading} />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="category">Categoría *</Label>
-                    <select
-                      name="category"
-                      required
-                      disabled={isLoading}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="">Seleccionar categoría</option>
-                      <option value="oleos">Óleos</option>
-                      <option value="oleo-pastel">Óleo Pastel</option>
-                      <option value="acrilicos">Acrílicos</option>
-                      <option value="tecnica-mixta">Técnica Mixta</option>
-                      <option value="acuarelas">Acuarelas</option>
-                      <option value="dibujos">Dibujos</option>
-                      <option value="esculturas">Esculturas</option>
-                      <option value="otros">Otros</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="espatula"
-                      checked={isEspatula}
-                      onCheckedChange={(checked) => setIsEspatula(checked as boolean)}
-                      disabled={isLoading}
-                    />
-                    <Label htmlFor="espatula" className="text-sm font-medium">
-                      Técnica de Espátula
-                    </Label>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="price">Precio (USD) *</Label>
-                    <Input id="price" name="price" type="number" placeholder="0" required disabled={isLoading} />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="description">Descripción Corta *</Label>
-                    <Input
-                      id="description"
-                      name="description"
-                      placeholder="Ej: Acrílico sobre lienzo, 40x60cm"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="detailedDescription">Descripción Detallada</Label>
-                    <Textarea
-                      id="detailedDescription"
-                      name="detailedDescription"
-                      placeholder="Describe la obra, su inspiración, técnica utilizada..."
-                      rows={4}
-                      disabled={isLoading}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Detalles Técnicos</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="year">Año</Label>
-                      <Input
-                        id="year"
-                        name="year"
-                        type="number"
-                        defaultValue={new Date().getFullYear()}
-                        min="1900"
-                        max={new Date().getFullYear()}
-                        disabled={isLoading}
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="dimensions">Dimensiones</Label>
-                      <Input id="dimensions" name="dimensions" placeholder="Ej: 40 x 60 cm" disabled={isLoading} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="technique">Técnica</Label>
-                    <Input
-                      id="technique"
-                      name="technique"
-                      placeholder="Ej: Acrílico sobre lienzo"
-                      disabled={isLoading}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Imágenes de la Obra</CardTitle>
-                  <p className="text-sm text-gray-600">
-                    Máximo 3 imágenes. Optimización automática para mejor rendimiento.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <SimpleImageUpload onImagesChange={handleImagesChange} maxImages={3} />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Configuración</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="status">Estado</Label>
-                    <select
-                      name="status"
-                      defaultValue="Disponible"
-                      disabled={isLoading}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="Disponible">Disponible</option>
-                      <option value="Vendida">Vendida</option>
-                      <option value="Reservado">Reservado</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="featured" name="featured" disabled={isLoading} />
-                    <Label htmlFor="featured">Obra Destacada</Label>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex gap-3">
-                <Button
-                  type="submit"
-                  className="flex-1 bg-gray-900 hover:bg-gray-800"
-                  disabled={isLoading || selectedImages.length === 0}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Guardar Obra
-                    </>
-                  )}
-                </Button>
+          <Card>
+            <CardHeader>
+              <CardTitle>Información de la Obra</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Título */}
+              <div className="space-y-2">
+                <Label htmlFor="title">Título *</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  required
+                />
               </div>
 
-              {/* Mensajes de estado */}
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <AlertTriangle className="w-4 h-4 text-red-600 mr-3 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-red-800">Error</p>
-                      <p className="text-xs text-red-600">{error}</p>
+              {/* Descripción */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Descripción *</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={4}
+                  required
+                />
+              </div>
+
+              {/* Categoría */}
+              <div className="space-y-2">
+                <Label htmlFor="category">Categoría *</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Acrílico">Acrílico</SelectItem>
+                    <SelectItem value="Óleo">Óleo</SelectItem>
+                    <SelectItem value="Óleo Pastel">Óleo Pastel</SelectItem>
+                    <SelectItem value="Acuarela">Acuarela</SelectItem>
+                    <SelectItem value="Dibujo">Dibujo</SelectItem>
+                    <SelectItem value="Esculturas">Esculturas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Año */}
+              <div className="space-y-2">
+                <Label htmlFor="year">Año *</Label>
+                <Input
+                  id="year"
+                  type="number"
+                  value={formData.year}
+                  onChange={(e) => setFormData({ ...formData, year: Number.parseInt(e.target.value) })}
+                  required
+                />
+              </div>
+
+              {/* Dimensiones */}
+              <div className="space-y-2">
+                <Label htmlFor="dimensions">Dimensiones</Label>
+                <Input
+                  id="dimensions"
+                  value={formData.dimensions}
+                  onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
+                  placeholder="ej: 50 x 70 cm"
+                />
+              </div>
+
+              {/* Materiales */}
+              <div className="space-y-2">
+                <Label htmlFor="materials">Materiales</Label>
+                <Input
+                  id="materials"
+                  value={formData.materials}
+                  onChange={(e) => setFormData({ ...formData, materials: e.target.value })}
+                  placeholder="ej: Óleo sobre lienzo"
+                />
+              </div>
+
+              {/* Precio */}
+              <div className="space-y-2">
+                <Label htmlFor="price">Precio (USD)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+
+              {/* Disponibilidad */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="available"
+                  checked={formData.available}
+                  onChange={(e) => setFormData({ ...formData, available: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="available" className="cursor-pointer">
+                  Obra disponible para venta
+                </Label>
+              </div>
+
+              {/* Imagen Principal */}
+              <div className="space-y-2">
+                <Label>Imagen Principal *</Label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                  {mainImagePreview ? (
+                    <div className="relative w-full aspect-square max-w-md mx-auto">
+                      <Image
+                        src={mainImagePreview || "/placeholder.svg"}
+                        alt="Preview"
+                        fill
+                        className="object-contain rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2"
+                        onClick={() => {
+                          setMainImagePreview(null)
+                          setMainImageFile(null)
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedImages.length === 0 && !error && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-800">⚠️ Selecciona al menos una imagen para continuar</p>
-                </div>
-              )}
-
-              {isLoading && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <Loader2 className="w-4 h-4 border-b-2 border-blue-600 mr-3 animate-spin" />
+                  ) : (
                     <div>
-                      <p className="text-sm font-medium text-blue-800">Subiendo imágenes optimizadas...</p>
-                      <p className="text-xs text-blue-600">
-                        Procesando {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""}. Esto puede
-                        tomar unos momentos.
-                      </p>
+                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                      <p className="mt-2 text-sm text-gray-600">Haz clic para seleccionar una imagen</p>
+                      <p className="text-xs text-gray-500 mt-1">PNG, JPG hasta 10MB</p>
+                      <Input type="file" accept="image/*" onChange={handleMainImageChange} className="mt-4" />
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
 
-              {selectedImages.length > 0 && !isLoading && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-sm text-green-700">
-                    ✅ {selectedImages.length} imagen{selectedImages.length > 1 ? "es" : ""} optimizada
-                    {selectedImages.length > 1 ? "s" : ""} lista{selectedImages.length > 1 ? "s" : ""} para subir
-                  </p>
-                  <p className="text-xs text-green-600 mt-1">
-                    Tamaño total optimizado:{" "}
-                    {(selectedImages.reduce((acc, img) => acc + img.size, 0) / 1024 / 1024).toFixed(2)}MB
-                  </p>
+              {/* Imágenes Adicionales */}
+              <div className="space-y-2">
+                <Label>Imágenes Adicionales (Opcional)</Label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                  <Input type="file" accept="image/*" multiple onChange={handleAdditionalImagesChange} />
+                  {additionalImagesPreviews.length > 0 && (
+                    <div className="grid grid-cols-3 gap-4 mt-4">
+                      {additionalImagesPreviews.map((preview, index) => (
+                        <div key={index} className="relative aspect-square">
+                          <Image
+                            src={preview || "/placeholder.svg"}
+                            alt={`Preview ${index + 1}`}
+                            fill
+                            className="object-cover rounded-lg"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2"
+                            onClick={() => removeAdditionalImage(index)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-4 mt-6">
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                "Crear Obra"
               )}
-            </div>
+            </Button>
           </div>
         </form>
-      </main>
+      </div>
     </div>
   )
 }
