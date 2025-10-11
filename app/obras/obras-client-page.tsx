@@ -41,28 +41,16 @@ interface ObrasClientPageProps {
   artworks: Artwork[]
 }
 
-const CATEGORIES = [
-  { id: "todos", label: "Todas", count: 0, icon: Palette },
-  { id: "oleos", label: "Óleos", count: 0, icon: Brush },
-  { id: "oleo-pastel", label: "Óleo Pastel", count: 0, icon: Layers },
-  { id: "acrilicos", label: "Acrílicos", count: 0, icon: Palette },
-  { id: "tecnica-mixta", label: "Técnica Mixta", count: 0, icon: Shapes },
-  { id: "acuarelas", label: "Acuarelas", count: 0, icon: Droplets },
-  { id: "dibujos", label: "Dibujos", count: 0, icon: Pencil },
-  { id: "esculturas", label: "Esculturas", count: 0, icon: Box },
-  { id: "otros", label: "Otros", count: 0, icon: PenTool },
+const SORT_OPTIONS = [
+  { id: "default", label: "Orden por Defecto", icon: ArrowUp },
+  { id: "price-asc", label: "Menor Precio", icon: ArrowUp },
+  { id: "price-desc", label: "Mayor Precio", icon: ArrowDown },
 ]
 
 const STATUS_OPTIONS = [
   { id: "todos", label: "Todos los Estados" },
   { id: "Disponible", label: "Disponibles" },
   { id: "Vendida", label: "Vendidas" },
-]
-
-const SORT_OPTIONS = [
-  { id: "default", label: "Orden por Defecto", icon: ArrowUp },
-  { id: "price-asc", label: "Menor Precio", icon: ArrowUp },
-  { id: "price-desc", label: "Mayor Precio", icon: ArrowDown },
 ]
 
 export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
@@ -73,53 +61,99 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [showFilters, setShowFilters] = useState(false)
 
+  // Obtener categorías únicas dinámicamente desde las obras
+  const categories = useMemo(() => {
+    const uniqueCategories = Array.from(new Set(artworks.map((artwork) => artwork.category)))
+
+    const categoryMap: { [key: string]: { label: string; icon: any } } = {
+      oleos: { label: "Óleos", icon: Brush },
+      "oleo-pastel": { label: "Óleo Pastel", icon: Layers },
+      acrilicos: { label: "Acrílicos", icon: Palette },
+      "tecnica-mixta": { label: "Técnica Mixta", icon: Shapes },
+      acuarelas: { label: "Acuarelas", icon: Droplets },
+      dibujos: { label: "Dibujos", icon: Pencil },
+      esculturas: { label: "Esculturas", icon: Box },
+      otros: { label: "Otros", icon: PenTool },
+    }
+
+    const categoriesWithCounts = [
+      {
+        id: "todos",
+        label: "Todas",
+        count: artworks.length,
+        icon: Palette,
+      },
+    ]
+
+    uniqueCategories.forEach((cat) => {
+      const catInfo = categoryMap[cat] || { label: cat, icon: PenTool }
+      categoriesWithCounts.push({
+        id: cat,
+        label: catInfo.label,
+        count: artworks.filter((artwork) => artwork.category === cat).length,
+        icon: catInfo.icon,
+      })
+    })
+
+    return categoriesWithCounts
+  }, [artworks])
+
   // Obtener años únicos de las obras
   const availableYears = useMemo(() => {
     const years = artworks
       .map((artwork) => artwork.year)
-      .filter((year): year is number => year !== undefined && year !== null)
-      .sort((a, b) => b - a) // Ordenar de más reciente a más antiguo
+      .filter((year): year is number => year !== undefined && year !== null && !isNaN(year))
+      .sort((a, b) => b - a)
 
     return Array.from(new Set(years))
   }, [artworks])
 
-  // Calcular conteos de categorías
-  const categoriesWithCounts = useMemo(() => {
-    return CATEGORIES.map((category) => ({
-      ...category,
-      count:
-        category.id === "todos"
-          ? artworks.length
-          : artworks.filter((artwork) => artwork.category === category.id).length,
-    }))
-  }, [artworks])
-
   // Filtrar y ordenar obras
   const filteredAndSortedArtworks = useMemo(() => {
-    let filtered = artworks
+    console.log("Filtrando obras:", {
+      selectedCategory,
+      selectedStatus,
+      selectedYear,
+      searchTerm,
+      totalArtworks: artworks.length,
+    })
+
+    let filtered = [...artworks]
 
     // Filtrar por categoría
     if (selectedCategory !== "todos") {
-      filtered = filtered.filter((artwork) => artwork.category === selectedCategory)
+      filtered = filtered.filter((artwork) => {
+        console.log(`Comparando: ${artwork.category} === ${selectedCategory}`, artwork.category === selectedCategory)
+        return artwork.category === selectedCategory
+      })
+      console.log("Después de filtrar por categoría:", filtered.length)
     }
 
     // Filtrar por estado
     if (selectedStatus !== "todos") {
       filtered = filtered.filter((artwork) => artwork.status === selectedStatus)
+      console.log("Después de filtrar por estado:", filtered.length)
     }
 
     // Filtrar por año
     if (selectedYear !== "todos") {
-      filtered = filtered.filter((artwork) => artwork.year === Number(selectedYear))
+      const yearNumber = Number(selectedYear)
+      filtered = filtered.filter((artwork) => {
+        console.log(`Comparando año: ${artwork.year} === ${yearNumber}`, artwork.year === yearNumber)
+        return artwork.year === yearNumber
+      })
+      console.log("Después de filtrar por año:", filtered.length)
     }
 
     // Filtrar por búsqueda
-    if (searchTerm !== "") {
+    if (searchTerm.trim() !== "") {
+      const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter(
         (artwork) =>
-          artwork.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          artwork.description.toLowerCase().includes(searchTerm.toLowerCase()),
+          artwork.title.toLowerCase().includes(searchLower) ||
+          (artwork.description && artwork.description.toLowerCase().includes(searchLower)),
       )
+      console.log("Después de filtrar por búsqueda:", filtered.length)
     }
 
     // Ordenar
@@ -150,6 +184,7 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
 
   // Handle category filter with analytics
   const handleCategoryFilter = (categoryId: string) => {
+    console.log("Seleccionando categoría:", categoryId)
     setSelectedCategory(categoryId)
     trackCategoryFilter(categoryId)
   }
@@ -161,6 +196,10 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
       trackSearch(term)
     }
   }
+
+  // Debug: Mostrar todas las categorías únicas en las obras
+  console.log("Categorías en las obras:", Array.from(new Set(artworks.map((a) => a.category))))
+  console.log("Años en las obras:", Array.from(new Set(artworks.map((a) => a.year))))
 
   return (
     <div className="min-h-screen relative">
@@ -232,7 +271,7 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
 
             {/* CATEGORÍAS MINIMALISTAS - SIEMPRE VISIBLES */}
             <div className="flex flex-wrap gap-2">
-              {categoriesWithCounts.map((category) => {
+              {categories.map((category) => {
                 const Icon = category.icon
                 return (
                   <button
@@ -415,7 +454,7 @@ export default function ObrasClientPage({ artworks }: ObrasClientPageProps) {
                     <p className="text-sm text-gray-600 mb-3 line-clamp-2">{artwork.description}</p>
                     <div className="flex items-center justify-between">
                       <p className="text-xl font-bold text-gray-900">USD {artwork.price}</p>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 flex-wrap">
                         <Badge className="capitalize text-xs">{artwork.category}</Badge>
                         {artwork.status === "Vendida" && (
                           <Badge variant="destructive" className="text-xs">

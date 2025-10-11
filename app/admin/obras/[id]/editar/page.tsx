@@ -8,14 +8,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { updateArtwork, getArtworkById } from "@/app/actions/artworks"
+import { ArrowLeft, Save, Loader2 } from "lucide-react"
+import Link from "next/link"
+import Image from "next/image"
 import { MultipleImageUpload } from "@/components/multiple-image-upload"
 import { SuccessPopup } from "@/components/success-popup"
-import { ArrowLeft, Loader2 } from "lucide-react"
-import Link from "next/link"
-import { getArtworkById, updateArtwork } from "@/app/actions/artworks"
 
 interface EditarObraPageProps {
   params: {
@@ -25,65 +26,74 @@ interface EditarObraPageProps {
 
 export default function EditarObraPage({ params }: EditarObraPageProps) {
   const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [showSuccess, setShowSuccess] = useState(false)
-  const [images, setImages] = useState<File[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [artwork, setArtwork] = useState<any>(null)
+  const [newImages, setNewImages] = useState<File[]>([])
+  const [replaceImages, setReplaceImages] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   useEffect(() => {
-    const loadArtwork = async () => {
+    async function loadArtwork() {
       try {
         const data = await getArtworkById(params.id)
-        if (data) {
-          setArtwork(data)
-        } else {
+        if (!data) {
           setError("Obra no encontrada")
+          return
         }
+        setArtwork(data)
       } catch (err) {
         console.error("Error loading artwork:", err)
         setError("Error al cargar la obra")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     loadArtwork()
   }, [params.id])
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setSaving(true)
     setError(null)
-    setIsSubmitting(true)
 
     try {
       const formData = new FormData(e.currentTarget)
 
-      // Agregar imágenes solo si hay nuevas imágenes seleccionadas
-      if (images.length > 0) {
-        images.forEach((image) => {
+      // Si se decidió reemplazar imágenes, agregar las nuevas
+      if (replaceImages && newImages.length > 0) {
+        newImages.forEach((image) => {
           formData.append("images", image)
         })
       }
 
+      console.log("📤 Actualizando obra con", newImages.length, "nuevas imágenes")
+
       await updateArtwork(params.id, formData)
+
+      console.log("✅ Obra actualizada exitosamente")
+
+      // Mostrar popup de éxito
       setShowSuccess(true)
 
+      // Esperar 2 segundos antes de redirigir
       setTimeout(() => {
         router.push("/admin/obras")
+        router.refresh()
       }, 2000)
-    } catch (error) {
-      console.error("Error updating artwork:", error)
-      setError(error instanceof Error ? error.message : "Error al actualizar la obra")
-      setIsSubmitting(false)
+    } catch (err) {
+      console.error("❌ Error al actualizar obra:", err)
+      setError(err instanceof Error ? err.message : "Error al actualizar la obra")
+      setSaving(false)
     }
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
       </div>
     )
   }
@@ -93,7 +103,7 @@ export default function EditarObraPage({ params }: EditarObraPageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={() => router.back()}>Volver</Button>
+          <Button onClick={() => router.push("/admin/obras")}>Volver a Obras</Button>
         </div>
       </div>
     )
@@ -101,212 +111,221 @@ export default function EditarObraPage({ params }: EditarObraPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <Link href="/admin/obras">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Volver
-                </Button>
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">Editar Obra</h1>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <Link href="/admin/obras" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Volver a Obras
+          </Link>
+          <h1 className="text-3xl font-bold text-gray-900">Editar Obra</h1>
+          <p className="text-gray-600 mt-2">{artwork?.title}</p>
+        </div>
+
+        {/* Formulario */}
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-6">
+            {/* Información básica */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Información Básica</CardTitle>
+                <CardDescription>Datos principales de la obra</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Título *</Label>
+                  <Input id="title" name="title" required defaultValue={artwork?.title} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="category">Categoría *</Label>
+                    <Select name="category" required defaultValue={artwork?.category}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="oleos">Óleos</SelectItem>
+                        <SelectItem value="oleo-pastel">Óleo Pastel</SelectItem>
+                        <SelectItem value="acrilicos">Acrílicos</SelectItem>
+                        <SelectItem value="tecnica-mixta">Técnica Mixta</SelectItem>
+                        <SelectItem value="acuarelas">Acuarelas</SelectItem>
+                        <SelectItem value="dibujos">Dibujos</SelectItem>
+                        <SelectItem value="esculturas">Esculturas</SelectItem>
+                        <SelectItem value="otros">Otros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="subcategory">Subcategoría</Label>
+                    <Input id="subcategory" name="subcategory" defaultValue={artwork?.subcategory || ""} />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="price">Precio (USD) *</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    required
+                    defaultValue={artwork?.price}
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Descripción Corta *</Label>
+                  <Textarea id="description" name="description" required defaultValue={artwork?.description} rows={3} />
+                </div>
+
+                <div>
+                  <Label htmlFor="detailedDescription">Descripción Detallada</Label>
+                  <Textarea
+                    id="detailedDescription"
+                    name="detailedDescription"
+                    defaultValue={artwork?.detailed_description || ""}
+                    rows={5}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Detalles técnicos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Detalles Técnicos</CardTitle>
+                <CardDescription>Información técnica de la obra</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="year">Año</Label>
+                    <Input id="year" name="year" type="number" defaultValue={artwork?.year || ""} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="dimensions">Dimensiones</Label>
+                    <Input id="dimensions" name="dimensions" defaultValue={artwork?.dimensions || ""} />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="technique">Técnica</Label>
+                  <Input id="technique" name="technique" defaultValue={artwork?.technique || ""} />
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Estado</Label>
+                  <Select name="status" defaultValue={artwork?.status || "Disponible"}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Disponible">Disponible</SelectItem>
+                      <SelectItem value="Vendida">Vendida</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="featured" name="featured" defaultChecked={artwork?.featured} />
+                  <Label htmlFor="featured" className="cursor-pointer">
+                    Obra destacada (se mostrará en la página principal)
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Imágenes actuales */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Imágenes Actuales</CardTitle>
+                <CardDescription>Estas son las imágenes que la obra tiene actualmente</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {artwork?.gallery && artwork.gallery.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {artwork.gallery.map((url: string, index: number) => (
+                      <div key={index} className="relative aspect-square">
+                        <Image
+                          src={url || "/placeholder.svg"}
+                          alt={`Imagen ${index + 1}`}
+                          fill
+                          className="object-cover rounded-lg"
+                          sizes="(max-width: 768px) 50vw, 33vw"
+                        />
+                        {index === 0 && (
+                          <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                            Principal
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No hay imágenes</p>
+                )}
+
+                <div className="mt-4 flex items-center space-x-2">
+                  <Checkbox id="replaceImages" checked={replaceImages} onCheckedChange={setReplaceImages} />
+                  <Label htmlFor="replaceImages" className="cursor-pointer">
+                    Reemplazar todas las imágenes con nuevas
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Nuevas imágenes */}
+            {replaceImages && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Nuevas Imágenes</CardTitle>
+                  <CardDescription>Sube las nuevas imágenes que reemplazarán a las actuales</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MultipleImageUpload images={newImages} onImagesChange={setNewImages} />
+                  {newImages.length === 0 && (
+                    <p className="text-sm text-red-600 mt-2">Debes subir al menos una imagen</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
+
+            {/* Botones */}
+            <div className="flex gap-4">
+              <Button type="submit" disabled={saving || (replaceImages && newImages.length === 0)} className="flex-1">
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Guardar Cambios
+                  </>
+                )}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => router.push("/admin/obras")} disabled={saving}>
+                Cancelar
+              </Button>
             </div>
           </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSubmit}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Información de la Obra</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Imágenes */}
-              <div>
-                <Label>Imágenes de la Obra</Label>
-                <p className="text-sm text-gray-500 mb-2">
-                  {images.length === 0
-                    ? "Las imágenes actuales se mantendrán. Sube nuevas imágenes solo si deseas reemplazarlas."
-                    : "La primera imagen será la imagen principal. Las imágenes actuales serán reemplazadas."}
-                </p>
-                <MultipleImageUpload images={images} setImages={setImages} />
-              </div>
-
-              {/* Título */}
-              <div>
-                <Label htmlFor="title">Título *</Label>
-                <Input
-                  id="title"
-                  name="title"
-                  required
-                  defaultValue={artwork?.title}
-                  placeholder="Ej: Retrato de la Vulnerabilidad"
-                />
-              </div>
-
-              {/* Categoría */}
-              <div>
-                <Label htmlFor="category">Categoría *</Label>
-                <Select name="category" required defaultValue={artwork?.category}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="oleos">Óleos</SelectItem>
-                    <SelectItem value="oleo-pastel">Óleo Pastel</SelectItem>
-                    <SelectItem value="acrilicos">Acrílicos</SelectItem>
-                    <SelectItem value="tecnica-mixta">Técnica Mixta</SelectItem>
-                    <SelectItem value="acuarelas">Acuarelas</SelectItem>
-                    <SelectItem value="dibujos">Dibujos</SelectItem>
-                    <SelectItem value="esculturas">Esculturas</SelectItem>
-                    <SelectItem value="otros">Otros</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Subcategoría */}
-              <div>
-                <Label htmlFor="subcategory">Subcategoría</Label>
-                <Input
-                  id="subcategory"
-                  name="subcategory"
-                  defaultValue={artwork?.subcategory || ""}
-                  placeholder="Ej: Espátula, Pincel, etc."
-                />
-              </div>
-
-              {/* Precio */}
-              <div>
-                <Label htmlFor="price">Precio (USD) *</Label>
-                <Input
-                  id="price"
-                  name="price"
-                  type="number"
-                  required
-                  defaultValue={artwork?.price}
-                  placeholder="1500"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              {/* Descripción Corta */}
-              <div>
-                <Label htmlFor="description">Descripción Corta *</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  required
-                  defaultValue={artwork?.description}
-                  placeholder="Breve descripción de la obra"
-                  rows={3}
-                />
-              </div>
-
-              {/* Descripción Detallada */}
-              <div>
-                <Label htmlFor="detailedDescription">Descripción Detallada</Label>
-                <Textarea
-                  id="detailedDescription"
-                  name="detailedDescription"
-                  defaultValue={artwork?.detailed_description || ""}
-                  placeholder="Descripción completa de la obra, su significado, técnica, inspiración..."
-                  rows={6}
-                />
-              </div>
-
-              {/* Año */}
-              <div>
-                <Label htmlFor="year">Año</Label>
-                <Input
-                  id="year"
-                  name="year"
-                  type="number"
-                  defaultValue={artwork?.year || ""}
-                  placeholder={new Date().getFullYear().toString()}
-                  min="1900"
-                  max={new Date().getFullYear()}
-                />
-              </div>
-
-              {/* Dimensiones */}
-              <div>
-                <Label htmlFor="dimensions">Dimensiones</Label>
-                <Input
-                  id="dimensions"
-                  name="dimensions"
-                  defaultValue={artwork?.dimensions || ""}
-                  placeholder="Ej: 60 x 80 cm"
-                />
-              </div>
-
-              {/* Técnica */}
-              <div>
-                <Label htmlFor="technique">Técnica</Label>
-                <Input
-                  id="technique"
-                  name="technique"
-                  defaultValue={artwork?.technique || ""}
-                  placeholder="Ej: Óleo sobre lienzo"
-                />
-              </div>
-
-              {/* Estado */}
-              <div>
-                <Label htmlFor="status">Estado *</Label>
-                <Select name="status" required defaultValue={artwork?.status || "Disponible"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Disponible">Disponible</SelectItem>
-                    <SelectItem value="Vendida">Vendida</SelectItem>
-                    <SelectItem value="No disponible">No disponible</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Destacada */}
-              <div className="flex items-center space-x-2">
-                <Checkbox id="featured" name="featured" defaultChecked={artwork?.featured} />
-                <Label htmlFor="featured" className="cursor-pointer">
-                  Marcar como obra destacada (aparecerá en la página principal)
-                </Label>
-              </div>
-
-              {/* Error */}
-              {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
-
-              {/* Botones */}
-              <div className="flex gap-4 pt-4">
-                <Button type="submit" disabled={isSubmitting} className="flex-1">
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Guardando...
-                    </>
-                  ) : (
-                    "Guardar Cambios"
-                  )}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
-                  Cancelar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </form>
-      </main>
+      </div>
 
-      {/* Success Popup */}
-      {showSuccess && (
-        <SuccessPopup message="¡Obra actualizada exitosamente!" onClose={() => router.push("/admin/obras")} />
-      )}
+      {/* Popup de éxito */}
+      {showSuccess && <SuccessPopup message="Obra actualizada exitosamente" />}
     </div>
   )
 }
